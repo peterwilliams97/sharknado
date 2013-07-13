@@ -35,6 +35,7 @@ nosetests.xml
 .pydevproject
 
 *.pdf
+*.mp*
 solver*
 data/*
 data
