@@ -38,4 +38,6 @@ nosetests.xml
 *.mp*
 solver*
 data/*
+knapsack/data/*
+coloring/data/*
 data
