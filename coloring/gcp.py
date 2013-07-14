@@ -31,6 +31,7 @@ def maximal_cliques(G, n0):
         if len(C) == n_cliques:
             C_maximal.append(c)
     
+    print '@@3'
     return [frozenset(c) for c in (C_maximal + C)]       
                     
     
@@ -61,15 +62,17 @@ def all_cliques(G):
         C.extend(maximal_cliques(G, n))
     #C = [clique(G, n) for n in G]
     
-    print '**        maximal cliques' 
-    for i, c in enumerate(C):
-        print '%2d : %s' % (i, sorted(c))
+    if False:
+        print '**        maximal cliques' 
+        for i, c in enumerate(C):
+            print '%2d : %s' % (i, sorted(c))
     #C_unique = sorted(set(C), key=lambda c: C.index(c))
     C_unique = sorted(set(C), key=lambda c: (-len(c), C.index(c)))
     
-    print '!! unique maximal cliques'
-    for c in (C_unique):
-        print '  %s' % sorted(c)
+    if False:
+        print '!! unique maximal cliques'
+        for c in (C_unique):
+            print '  %s' % sorted(c)
     c_all = set(C_unique[0])    
     for c in C_unique[1:]: 
         c_all.update(c)
@@ -104,14 +107,34 @@ def count_collisions(G, X):
     return n_collisions
     
     
+def normalize(X):
+    colors = sorted(set(X), key=lambda c: (-X.count(c), c))
+    
+    color_index = [-1] * (max(X) + 1)
+    for i in set(X):
+        color_index[i] = colors.index(i)
+    print colors, sorted(set(X)), color_index
+    return [color_index[c] for c in X]  
+    
+    
+def validate(G, X):    
+    for n in G:
+        assert X[n] >= 0, '%d %s' % (n, G[n])
+        assert all(X[n] != X[n1] for n1 in G[n]), '\n%d %s\n%d %s' % (
+            n, G[n], X[n], 
+            [X[n1] for n1 in G[n]] )     
+    
+    
 def find_min_colors(G):
 
-    pp(dict(G))
+    print (dict(G))
     order = range(len(G))
     order.sort(key=lambda n: -len(G[n]))
     # Cliques as sets
-    Cs = all_cliques(G)
     
+    print '@@1'
+    Cs = all_cliques(G)
+    print '@@2'
     
     # Cliques as ordered lists
     Co = [sorted(c, key=lambda n: -len(G[n])) for c in Cs]
@@ -124,7 +147,7 @@ def find_min_colors(G):
     
     X = [-1] * len(G)
     
-    # Color the graph  Kind of like http://carajcy.blogspot.com.au/2013/01/dsatur.html
+    # Color the graph somewhat like http://carajcy.blogspot.com.au/2013/01/dsatur.html
     # Start with largest clique
     cs, co = Cso[0]
     for i, n in enumerate(co):
@@ -148,10 +171,11 @@ def find_min_colors(G):
         print '%d: %d' % (c, X.count(c))
     
     # Sort colors by most common first
-    color_order = sorted(set(X), key=lambda c: (-X.count(c), c))
-    color_order = [color_order.index(i) for i in range(n_colors)]
-    X = [color_order[c] for c in X]  
-    print color_order
+    #color_order = sorted(set(X), key=lambda c: (-X.count(c), c))
+    #color_order = [color_order.index(i) for i in range(n_colors)]
+    #X = [color_order[c] for c in X]  
+    #print color_order
+    X = normalize(X)
     
     for c in sorted(set(X)):
         print '%d: %d' % (c, X.count(c))
@@ -177,31 +201,101 @@ def find_min_colors(G):
             for cs, co in cliques:
                 pass       
         
-    return n_colors, X, n_colors == n_min                
+    return X, n_min                
  
-def do_kempe(G, X, n_colors):
+def do_kempe(G, X0, n_colors):
+    X = X0[:]
+    
     color_classes = [set([n for n, x in enumerate(X) if x == c]) for c in range(n_colors)]
     assert sum(len(cls) for cls in color_classes) == len(X)
     
+    for n in G:
+        for n1 in G[n]:
+            assert n in G[n1], '%d %d' % (n, n1)
+    
     def objective():
         return sum(len(cls)**2 for cls in color_classes)
+        
+    def makeX():  
+        X1 = [-1] * len(X)
+        for c, cls in enumerate(color_classes):
+            for x in cls:
+                X1[x] = c
+        return X1  
+
+    def neighbor_colors(n):
+        return set(X[n1] for n1 in G[n])
     
     print '$' * 40
     print [len(cls) for cls in color_classes], objective()
-    for i1 in range(1, n_colors):
-        for i2 in range(i1):
-            links1 = set([n for n in color_classes[i1] if i2 in G[n]])
-            links2 = set([n for n in color_classes[i2] if i1 in G[n]])
+     
+    
+    '''
+    Smalleest to largest color class
+        #for i1 in range(n_colors -1, -1, -1):
+        #    for i2 in range(i1 - 1, -1, -1):
+    [22, 21, 18, 17, 15, 7] 1812
+    [22, 21, 18, 14, 18, 7] 1818 (4, 3) (514, 520) True
+    [22, 21, 19, 14, 17, 7] 1820 (4, 2) (648, 650) True
+    [16, 21, 19, 14, 23, 7] 1832 (4, 0) (773, 785) True
+    [19, 21, 19, 11, 23, 7] 1862 (3, 0) (452, 482) True
+    [18, 21, 20, 11, 23, 7] 1864 (2, 0) (722, 724) True
+    
+    Largest to smallest color class
+        #for i2 in range(1, n_colors -1):
+        #    for i1 in range(0, i2):
+    [22, 21, 18, 17, 15, 7] 1812
+    [20, 23, 18, 17, 15, 7] 1816 (0, 1) (925, 929) True
+    [20, 17, 24, 17, 15, 7] 1828 (1, 2) (853, 865) True
+    [20, 18, 24, 16, 15, 7] 1830 (1, 3) (578, 580) True
+    [20, 14, 24, 16, 19, 7] 1838 (1, 4) (549, 557) True
+    '''
+    for i2 in range(1, n_colors -1):
+        for i1 in range(0, i2):
+            links1 = set([n for n in color_classes[i1] if i2 in neighbor_colors(n)])
+            links2 = set([n for n in color_classes[i2] if i1 in neighbor_colors(n)])
             cc1 = (color_classes[i1] - links1) | links2
             cc2 = (color_classes[i2] - links2) | links1
             before = len(color_classes[i1])**2 + len(color_classes[i2])**2
             after = len(cc1)**2 + len(cc2)**2
             if after > before:
-                color_classes[i1] = cc1
-                color_classes[i2] = cc2
-                print [len(cls) for cls in color_classes], objective(), (i1, i2), (before, after), after > before 
+                if False:
+                    print 
+                    for n in color_classes[i1]:
+                        if i2 in G[n]:
+                            print ' -- ', n, G[n]
+                           
+                    for n in color_classes[i2]:
+                        if i1 in G[n]:
+                            print ' ++ ', n, G[n]    
+                    print        
+                    print i1, sorted(set(sum((G[n] for n in color_classes[i1]), [])))
+                    print i2, sorted(set(sum((G[n] for n in color_classes[i2]), [])))
+                    print
+                    print i1, len(color_classes[i1]), sorted(color_classes[i1])
+                    print i2, len(color_classes[i2]), sorted(color_classes[i2])
+                    print
+                    print sorted(links1) 
+                    print sorted(links2)
+                    print
+                    print sorted(color_classes[i1] | color_classes[i2])
+                    print sorted(cc1)
+                    print sorted(cc2)
+                    print sorted(cc1 | cc2)
+                if len(cc2) > len(cc1):
+                    color_classes[i1] = cc2
+                    color_classes[i2] = cc1
+                else:    
+                    color_classes[i1] = cc1
+                    color_classes[i2] = cc2
+                print [len(cls) for cls in color_classes], objective(), (i1, i2), (before, after), after > before
+                X = makeX()
+                validate(G, X)    
 
-    print '$' * 40          
+    print '$' * 40
+    #X = makeX()
+    
+    return normalize(X)
  
 def solve(n_nodes, n_edges, edges):
     """
@@ -218,18 +312,27 @@ def solve(n_nodes, n_edges, edges):
         G[n1].append(n2)
         G[n2].append(n1)
     
-    n_colors, X, optimal = find_min_colors(G) 
- 
-    if not optimal:
-        do_kempe(G, X, n_colors)
+    X, n_min = find_min_colors(G) 
+    n_colors = len(set(X))
+    optimal = n_colors == n_min
+    
+    if not optimal or True:
+        X = do_kempe(G, X, n_colors)
+        X = normalize(X)
+        n_colors = len(set(X))
+        optimal = n_colors == n_min
+        
     
     for n in G:
         assert X[n] >= 0, '%d %s' % (n, G[n])
-        assert all(X[n] != X[n1] for n1 in G[n]), '%d %s' % (n, G[n]) 
+        assert all(X[n] != X[n1] for n1 in G[n]), '\n%d %s\n%d %s' % (
+            n, G[n], X[n], [X[n1] for n1 in G[n]] ) 
     
     for n in G:
         print n, X[n], G[n], [X[i] for i in G[n]]
         
+    print n_colors, optimal    
+    print '+' * 40    
     return n_colors, X, optimal
     
     #print G    
