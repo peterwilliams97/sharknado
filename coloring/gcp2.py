@@ -318,6 +318,17 @@ def do_kempe(G, X0, n_colors):
     return normalize(X)
  
 
+def color_counts(X):
+    """Return list of numbers of elements in each color class"""
+    counts_dict = defaultdict(int)
+    for c in X:
+        counts_dict[c] += 1
+    # List may have zero counts
+    counts = [0] * len(counts_dict)
+    for c, n in counts_dict.items():
+        counts[c] = n
+    return counts
+ 
 from utils import SortedDeque
     
 def do_search(G, X, n_colors):
@@ -368,6 +379,9 @@ def do_search(G, X, n_colors):
     best_X = tuple(X)
     best_n_col = len([x for x in n_cc if x > 0])
     
+    normX = normalize(X)
+    print 'best_X', v, n_col, color_counts(normX), normX
+    
     while solutions: 
         v, X, n_cc, n_bc = solutions.pop()
         if hash(X) in tested:
@@ -376,22 +390,23 @@ def do_search(G, X, n_colors):
         tested.add(hash(X))    
         #assert v == objective(n_cc, n_bc)
         n_col = len([x for x in n_cc if x > 0])
-        print '*', v, n_col, len(solutions), len(tested) #, X, n_cc, n_bc
-        if len(tested) % 100 == 1:
-            print X
-            print n_cc
-            print n_bc
-            validate(G, X)
+        print '*', v, n_col, len(solutions), len(tested), best_n_col #, X, n_cc, n_bc
+        if False:
+            if len(tested) % 100 == 1:
+                print X
+                print n_cc
+                print n_bc
+                validate(G, X)
             
         if n_col < best_n_col or (n_col == best_n_col and v < best_v):
+            if n_col < best_n_col:    
+                normX = normalize(X)
+                print 'best_X', v, n_col, color_counts(normX), normX
+                validate(G, X)
             best_v = v
             best_X = X[:]
             best_n_col = n_col
-            
-        if n_col < best_n_col:    
-            print normalize(X)
-            validate(G, X)
-            
+
             
         for n in G:
             c0 = X[n]

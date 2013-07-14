@@ -48,5 +48,10 @@ if False:
 class LRU:
 
     def __init__(self, maxlen):
-        self.ma
+        self.maxlen = maxlen
+        self.l_set = set([])
+        self.l_deque = deque()
+        
+    def add(self):
+        n = len
         
