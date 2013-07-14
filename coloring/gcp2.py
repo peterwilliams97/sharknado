@@ -251,24 +251,24 @@ def do_kempe(G, X0, n_colors):
      
     
     '''
-    Smallest to largest color class
-        #for i1 in range(n_colors -1, -1, -1):
-        #    for i2 in range(i1 - 1, -1, -1):
-    [22, 21, 18, 17, 15, 7] 1812
-    [22, 21, 18, 14, 18, 7] 1818 (4, 3) (514, 520) True
-    [22, 21, 19, 14, 17, 7] 1820 (4, 2) (648, 650) True
-    [16, 21, 19, 14, 23, 7] 1832 (4, 0) (773, 785) True
-    [19, 21, 19, 11, 23, 7] 1862 (3, 0) (452, 482) True
-    [18, 21, 20, 11, 23, 7] 1864 (2, 0) (722, 724) True
-    
-    Largest to smallest color class
-        #for i2 in range(1, n_colors -1):
-        #    for i1 in range(0, i2):
-    [22, 21, 18, 17, 15, 7] 1812
-    [20, 23, 18, 17, 15, 7] 1816 (0, 1) (925, 929) True
-    [20, 17, 24, 17, 15, 7] 1828 (1, 2) (853, 865) True
-    [20, 18, 24, 16, 15, 7] 1830 (1, 3) (578, 580) True
-    [20, 14, 24, 16, 19, 7] 1838 (1, 4) (549, 557) True
+        Smallest to largest color class
+            #for i1 in range(n_colors -1, -1, -1):
+            #    for i2 in range(i1 - 1, -1, -1):
+        [22, 21, 18, 17, 15, 7] 1812
+        [22, 21, 18, 14, 18, 7] 1818 (4, 3) (514, 520) True
+        [22, 21, 19, 14, 17, 7] 1820 (4, 2) (648, 650) True
+        [16, 21, 19, 14, 23, 7] 1832 (4, 0) (773, 785) True
+        [19, 21, 19, 11, 23, 7] 1862 (3, 0) (452, 482) True
+        [18, 21, 20, 11, 23, 7] 1864 (2, 0) (722, 724) True
+        
+        Largest to smallest color class
+            #for i2 in range(1, n_colors -1):
+            #    for i1 in range(0, i2):
+        [22, 21, 18, 17, 15, 7] 1812
+        [20, 23, 18, 17, 15, 7] 1816 (0, 1) (925, 929) True
+        [20, 17, 24, 17, 15, 7] 1828 (1, 2) (853, 865) True
+        [20, 18, 24, 16, 15, 7] 1830 (1, 3) (578, 580) True
+        [20, 14, 24, 16, 19, 7] 1838 (1, 4) (549, 557) True
     '''
     for i2 in range(1, n_colors -1):
         for i1 in range(0, i2):
@@ -317,6 +317,116 @@ def do_kempe(G, X0, n_colors):
     
     return normalize(X)
  
+
+from utils import SortedDeque
+    
+def do_search(G, X, n_colors):
+    """Local search around X using sum(|B[i]||C[i]| - |C[i]|^2) objective
+    """
+    
+    for n in G:
+        for n1 in G[n]:
+            assert n in G[n1], '%d %d' % (n, n1)
+
+    def makeX():  
+        X1 = [-1] * len(X)
+        for c, cls in enumerate(color_classes):
+            for x in cls:
+                X1[x] = c
+        return X1 
+    
+    # color_classes[c] = nodes with color c
+    color_classes = [set([n for n, x in enumerate(X) if x == c]) for c in range(n_colors)]
+    assert sum(len(cls) for cls in color_classes) == len(X)
+    
+    # broken_classes[c] = edges where both colors are c
+    broken_classes = [set([]) for c in range(n_colors)] 
+    
+    # We only need counts for our objective functions
+    n_cc = [len(color_classes[c]) for c in range(n_colors)]
+    n_bc = [len(broken_classes[c]) for c in range(n_colors)]
+            
+    def objective(n_cc, n_bc):
+        return sum((2 * n_cc[c] * n_bc[c] - n_cc[c] ** 2) for c in range(n_colors))
+        
+    #def delta(n, c, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c):
+    #    c0 = X(G[n])
+    #    before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2
+    #    n_cc_c0 -= 1
+    #    n_cc_c += 1
+    #    n_bc_c0 -= sum((int(X(G[n1]) == c0) for n1 in G[n])
+    #    n_bc_c  += sum((int(X(G[n1]) == c)  for n1 in G[n])
+    #    after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2
+    #    return after - before
+    
+    v = objective(n_cc, n_bc)  
+    LEN = 10000
+    solutions = SortedDeque([(v, tuple(X), n_cc, n_bc)], LEN)
+    tested = set()
+    counter = count()
+    best_v = v
+    best_X = tuple(X)
+    best_n_col = len([x for x in n_cc if x > 0])
+    
+    while solutions: 
+        v, X, n_cc, n_bc = solutions.pop()
+        if hash(X) in tested:
+            continue
+          
+        tested.add(hash(X))    
+        #assert v == objective(n_cc, n_bc)
+        n_col = len([x for x in n_cc if x > 0])
+        print '*', v, n_col, len(solutions), len(tested) #, X, n_cc, n_bc
+        if len(tested) % 100 == 1:
+            print X
+            print n_cc
+            print n_bc
+            validate(G, X)
+            
+        if n_col < best_n_col or (n_col == best_n_col and v < best_v):
+            best_v = v
+            best_X = X[:]
+            best_n_col = n_col
+            
+        if n_col < best_n_col:    
+            print normalize(X)
+            validate(G, X)
+            
+            
+        for n in G:
+            c0 = X[n]
+            for c in range(n_colors):
+                # Looking for a new color
+                if c == c0:
+                    continue
+                #X2[n] = c
+                #d = delta(n, c, n_cc[c0], n_cc[c], n_bc[c0], n_bc[c])
+                c0 = X[n]
+                # Can't remove any c0 color nodes if none exist
+                if n_cc[c0] == 0:
+                    continue
+                n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = n_cc[c0], n_cc[c], n_bc[c0], n_bc[c]
+                before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
+                n_cc_c0 -= 1
+                n_cc_c += 1
+                n_bc_c0 -= sum(int(X[n1] == c0) for n1 in G[n])
+                n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
+                after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
+                #print '&', before, after
+                if after < before:
+                    X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
+                    X2[n] = c
+                    n_cc2[c0], n_cc2[c], n_bc2[c0], n_bc2[c] =  n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
+                    v2 = objective(n_cc2, n_bc2)
+                    #assert v2 == v + after - before
+                    tX2 = tuple(X2)
+                    if hash(tX2) in tested:
+                        continue
+                    solutions.insert((v + after - before, tX2, n_cc2, n_bc2))
+
+    return best_X                    
+                    
+ 
 def solve(n_nodes, n_edges, edges):
     """
         Return chromatic number for graph
@@ -339,13 +449,19 @@ def solve(n_nodes, n_edges, edges):
     n_colors = len(set(X))
     optimal = n_colors == n_min
     
-    if not optimal or True:
+    if not optimal:
         X = do_kempe(G, X, n_colors)
         X = normalize(X)
         n_colors = len(set(X))
         optimal = n_colors == n_min
-        
-    
+       
+    if True:    
+        if not optimal:
+            X = do_search(G, X, n_colors)
+            X = normalize(X)
+            n_colors = len(set(X))
+            optimal = n_colors == n_min
+         
     for n in G:
         assert X[n] >= 0, '%d %s' % (n, G[n])
         assert all(X[n] != X[n1] for n1 in G[n]), '\n%d %s\n%d %s' % (
@@ -386,7 +502,10 @@ def solve(n_nodes, n_edges, edges):
     #print '-' * 80            
     #print C  
     #print '=' * 80  
-    return len(set(C)), [C[i] for i in range(n_nodes)], True    
+    return len(set(C)), [C[i] for i in range(n_nodes)], True  
+
+    
+
 
 def solveIt(inputData):
     # Modify this code to run your optimization algorithm
@@ -421,13 +540,20 @@ import sys
 
 import glob
 mask = sys.argv[1]
-for path in glob.glob(mask):
+results_f = open('results.all', 'wt')
+path_list = sorted(glob.glob(mask))
+
+for path in path_list:
     #print '-' * 80
     print path 
+    results_f.write('%s' % path)
+    results_f.flush()
     with open(path, 'rt') as f:
         data = f.read()
-    print solveIt(data)
-   
+    outputData = solveIt(data)
+    print outputData
+    results_f.write(' %s\n' % outputData)
+    results_f.flush()
     print '*' * 80
  
 exit()
