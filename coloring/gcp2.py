@@ -35,8 +35,9 @@ def maximal_cliques(G, n0):
     return [frozenset(c) for c in (C_maximal + C)]       
                     
     
-if False:    
+def maximal_clique(G, n0):   
     Q, V = [n0], set([n0])
+    #print sorted(G[n0])
     
     while Q:
         #print '++', Q, list(V),
@@ -44,15 +45,12 @@ if False:
         #print n
         for n1 in G[n]:
             # Already visited?
-            for v in V:
-                if n1 not in V:
-                    # Part of clique ?    
-                    if all(n2 in G[n1] for n2 in V):
-                        V.add(n1)
-                        Q.append(n1)
+            if n1 not in V and all(n2 in G[n1] for n2 in V):
+                V.add(n1)
+                Q.append(n1)
            # print '--', n1, Q, list(V)
-
-    #return frozenset(V)
+    #print '@@3'
+    return frozenset(V)
 
 
 def all_cliques(G):
@@ -60,8 +58,12 @@ def all_cliques(G):
     # N^2 
     C = []
     for n in G:
-        C.extend(maximal_cliques(G, n))
+        #C.extend(maximal_cliques(G, n))
+        C.append(maximal_clique(G, n))
     #C = [clique(G, n) for n in G]
+    
+    assert len(C) == len(G)
+    assert all(any(n in c for c in C) for n in G)
     
     if False:
         print '**        maximal cliques' 
@@ -69,11 +71,13 @@ def all_cliques(G):
             print '%2d : %s' % (i, sorted(c))
     #C_unique = sorted(set(C), key=lambda c: C.index(c))
     C_unique = sorted(set(C), key=lambda c: (-len(c), C.index(c)))
+    assert all(any(n in c for c in C_unique) for n in G)
     
     if False:
         print '!! unique maximal cliques'
         for c in (C_unique):
             print '  %s' % sorted(c)
+    
     c_all = set(C_unique[0])    
     for c in C_unique[1:]: 
         c_all.update(c)
@@ -85,16 +89,21 @@ def all_cliques(G):
     #assert all(any(n in G[n] in c 
     print '=' * 80
     
-    C = [C_unique[0]]
-    c_all = set(C_unique[0])
-    print xx(C), c_all
-    for i in range(1, len(C_unique)):
-        c = max(C_unique[i:], key=lambda c: -len(c & c_all))
-        ll = len(c & c_all)
-        C.append(c)
-        c_all.update(c)
-        #print i, xx(C), c, c_all, ll
+    if False:
+        C = [C_unique[0]]
+        c_all = set(C_unique[0])
+        print xx(C), c_all
+        for i in range(1, len(C_unique)):
+            c = max(C_unique[i:], key=lambda c: -len(c & c_all))
+            ll = len(c & c_all)
+            C.append(c)
+            c_all.update(c)
+            #print i, xx(C), c, c_all, ll
+    else:
+        C = C_unique
     
+    #assert len(C) == len(G)
+    assert all(any(n in c for c in C) for n in G)
     print '-' * 80
     return C
  
@@ -126,9 +135,16 @@ def validate(G, X):
             [X[n1] for n1 in G[n]] )     
     
     
+def union(list_of_sets):
+    unn = set([])
+    for s in list_of_sets:
+        unn = unn | s
+    return unn
+
+    
 def find_min_colors(G):
 
-    print (dict(G))
+    #print (dict(G))
     order = range(len(G))
     order.sort(key=lambda n: -len(G[n]))
     # Cliques as sets
@@ -136,6 +152,8 @@ def find_min_colors(G):
     print '@@1'
     Cs = all_cliques(G)
     print '@@2'
+    #assert len(Cs) == len(G)
+    assert len(union(Cs)) == len(G)
     
     # Cliques as ordered lists
     Co = [sorted(c, key=lambda n: -len(G[n])) for c in Cs]
@@ -167,6 +185,7 @@ def find_min_colors(G):
                     
     n_colors = len(set(X))
     print n_min, n_colors, n_max
+    validate(G, X)
     
     for c in sorted(set(X)):
         print '%d: %d' % (c, X.count(c))
@@ -227,12 +246,12 @@ def do_kempe(G, X0, n_colors):
     def neighbor_colors(n):
         return set(X[n1] for n1 in G[n])
     
-    print '$' * 40
+    print '$' * 40, 'kempe'
     print [len(cls) for cls in color_classes], objective()
      
     
     '''
-    Smalleest to largest color class
+    Smallest to largest color class
         #for i1 in range(n_colors -1, -1, -1):
         #    for i2 in range(i1 - 1, -1, -1):
     [22, 21, 18, 17, 15, 7] 1812

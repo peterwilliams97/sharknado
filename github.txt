@@ -10,12 +10,12 @@ Next steps:
   touch README
   git add README
   git commit -m 'first commit'
-  git remote add origin git@github.com:peterwilliams97/strings.git
+  git remote add origin git@github.com:peterwilliams97/sharknado.git
   git push -u origin master
       
 Existing Git Repo?
   cd existing_git_repo
-  git remote add origin git@github.com:peterwilliams97/strings.git
+  git remote add origin git@github.com:peterwilliams97/sharknado.git
   git push -u origin master
       
 Importing a Subversion Repo?
