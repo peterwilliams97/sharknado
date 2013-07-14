@@ -380,7 +380,7 @@ def do_search(G, X, n_colors):
     best_n_col = len([x for x in n_cc if x > 0])
     
     normX = normalize(X)
-    print 'best_X', v, n_col, color_counts(normX), normX
+    print 'best_X', v, best_n_col, color_counts(normX), normX
     
     while solutions: 
         v, X, n_cc, n_bc = solutions.pop()
