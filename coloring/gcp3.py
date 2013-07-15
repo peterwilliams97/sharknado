@@ -17,6 +17,8 @@
           Remove one color k, 
           Randomly reassign all vertices that were k with color k1 != k until a feasible solution
           is found
+          Asssign all length 1 classes and shortest class to all other colors
+          
           
           Implement a cache
           
