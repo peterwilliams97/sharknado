@@ -1,5 +1,30 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+"""
+    Find Chromatic number and colorings of specified graphs
+    
+    
+    TODO: 
+         Find local minima faster!
+          Remove color class(es) and run DSATUR during search
+          Run Kempe during search
+          Try actual DSATUR
+          Tabu
+          GA  
+            Select one of best neighbours with equal probability 1/(num best neighbours)
+            This will require adding values equal to current value
+          
+          Remove one color k, 
+          Randomly reassign all vertices that were k with color k1 != k until a feasible solution
+          is found
+          
+          Implement a cache
+          
+          Implement timeouts
+          
+          Search by distance(X, best_X)
+          
+"""
 from __future__ import division
 from itertools import count
 from collections import defaultdict
@@ -383,7 +408,7 @@ def broken_counts(G, n_colors, X):
                 broken[x] += 1
     return broken
 
-    
+
 def check_counts(G, n_colors, X, n_cc, n_bc):
     counts = color_counts(X, n_colors)
     broken = broken_counts(G, n_colors, X)
@@ -393,7 +418,8 @@ def check_counts(G, n_colors, X, n_cc, n_bc):
         counts=%s
         n_cc  =%s
     ''' % (len(G), n_colors, X, counts, n_cc)    
-    assert broken == n_bc            
+    assert broken == n_bc     
+    
  
 def perturb_by_class(G, X, Cso, n_colors):  
     #color_classes = [set([n for n, x in enumerate(X) if x == c]) for c in range(n_colors)]
@@ -460,9 +486,10 @@ def do_search(G, X, n_colors, Cso):
         check_counts(G, n_colors, X, n_cc, n_bc)
         #print '++++', v, ([solutions[i][0] for i in range(min(10,len(solutions)))], 
         #                  [solutions[-i-1][0] for i in range(min(10,len(solutions)))] )  
-        if hash(X) in tested:
+        hX = hash(normalize(X))
+        if hX in tested:
             continue
-        tested.add(hash(X))    
+        tested.add(hX)    
         
         #assert v == objective(n_cc, n_bc)
         n_col = len([x for x in n_cc if x > 0])
@@ -484,7 +511,6 @@ def do_search(G, X, n_colors, Cso):
             best_n_col = n_col
             needs_perturbation = True
 
-        
         if len(tested) % 10 == 1:
             needs_perturbation = True
             
@@ -492,7 +518,7 @@ def do_search(G, X, n_colors, Cso):
             needs_perturbation = False
             print 'perturbations',
             for X1 in perturb_by_class(G, X, Cso, n_colors):
-                if hash(X1) in tested:
+                if hash(normalize(X1)) in tested:
                     continue
                 n_cc1 = color_counts(X1, n_colors)
                 n_bc1 = [0] * n_colors
@@ -528,10 +554,9 @@ def do_search(G, X, n_colors, Cso):
                     check_counts(G, n_colors, X2, n_cc2, n_bc2)
                     v2 = objective(n_cc2, n_bc2)
                     #assert v2 == v + after - before
-                    tX2 = normalize(X2)
-                    if hash(tX2) in tested:
+                    if hash(normalize(X2)) in tested:
                         continue
-                    solutions.insert((v + after - before, tX2, n_cc2, n_bc2))
+                    solutions.insert((v + after - before, tuple(X2), n_cc2, n_bc2))
 
     return best_X                    
                     
