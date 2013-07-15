@@ -407,6 +407,16 @@ def perturb_by_class(G, X, Cso, n_colors):
         X2 = populate(G, X1, Cso)
         #assert all(x >= 0 for x in X2)
         perturbations.add(normalize(X))
+     
+    # !@#$ Replace least common colors      
+    # counts = color_counts(X, n_colors)
+    # min_c = min(enumerate(counts), key=lambda x: (x[1]> 0, x[1]))
+    # for c in range(n_colors):
+    #    if c == min_c:
+    #        continue
+    #    X1 = list(X)    
+           
+            
     return perturbations  
 
  
