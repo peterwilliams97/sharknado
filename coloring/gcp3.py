@@ -135,8 +135,8 @@ def validate(G, X):
         assert X[n] >= 0, '%d %s' % (n, G[n])
         assert all(X[n] != X[n1] for n1 in G[n]), '\n%d %s\n%d %s' % (
             n, G[n], X[n], 
-            [X[n1] for n1 in G[n]] )     
-    
+            [X[n1] for n1 in G[n]] ) 
+
     
 def union(list_of_sets):
     unn = set([])
@@ -365,17 +365,36 @@ def do_kempe(G, X0, n_colors):
 
 def color_counts(X, n_colors):
     """Return list of numbers of elements in each color class"""
-    counts_dict = defaultdict(int)
-    for c in X:
-        counts_dict[c] += 1
+    
     # List may have zero counts
     counts = [0] * n_colors
-    for c, n in counts_dict.items():
+    for c in X:
         assert 0 <= c < n_colors, c
-        counts[c] = n
+        counts[c] += 1 
     return counts
- 
 
+    
+def broken_counts(G, n_colors, X):
+    broken = [0] * n_colors
+    for n, neighbors in G.items():
+        x = X[n]
+        for n1 in neighbors:
+            if X[n1] == x:
+                broken[x] += 1
+    return broken
+
+    
+def check_counts(G, n_colors, X, n_cc, n_bc):
+    counts = color_counts(X, n_colors)
+    broken = broken_counts(G, n_colors, X)
+    assert counts == n_cc, '''
+        %d %d
+        X=%s
+        counts=%s
+        n_cc  =%s
+    ''' % (len(G), n_colors, X, counts, n_cc)    
+    assert broken == n_bc            
+ 
 def perturb_by_class(G, X, Cso, n_colors):  
     #color_classes = [set([n for n, x in enumerate(X) if x == c]) for c in range(n_colors)]
     perturbations = set([])
@@ -438,6 +457,7 @@ def do_search(G, X, n_colors, Cso):
     
     while solutions: 
         v, X, n_cc, n_bc = solutions.popleft()
+        check_counts(G, n_colors, X, n_cc, n_bc)
         #print '++++', v, ([solutions[i][0] for i in range(min(10,len(solutions)))], 
         #                  [solutions[-i-1][0] for i in range(min(10,len(solutions)))] )  
         if hash(X) in tested:
@@ -446,7 +466,7 @@ def do_search(G, X, n_colors, Cso):
         
         #assert v == objective(n_cc, n_bc)
         n_col = len([x for x in n_cc if x > 0])
-        print '*', v, n_col, len(solutions), len(tested), best_n_col #, X, n_cc, n_bc
+        print '*', (v, n_col), len(solutions), len(tested), (best_v, best_n_col) #, X, n_cc, n_bc
         if False:
             if len(tested) % 100 == 1:
                 print X
@@ -505,6 +525,7 @@ def do_search(G, X, n_colors, Cso):
                     X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
                     X2[n] = c
                     n_cc2[c0], n_cc2[c], n_bc2[c0], n_bc2[c] =  n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
+                    check_counts(G, n_colors, X2, n_cc2, n_bc2)
                     v2 = objective(n_cc2, n_bc2)
                     #assert v2 == v + after - before
                     tX2 = normalize(X2)
@@ -538,6 +559,7 @@ def solve(n_nodes, n_edges, edges):
     X, n_min = find_min_colors(G, Cso) 
     n_colors = len(set(X))
     optimal = n_colors == n_min
+    print 'n_min=%d,n_colors=%d' % (n_min, n_colors)
     
     if not optimal:
         X = do_kempe(G, X, n_colors)
