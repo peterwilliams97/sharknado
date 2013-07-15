@@ -136,6 +136,7 @@ def validate(G, X):
         assert all(X[n] != X[n1] for n1 in G[n]), '\n%d %s\n%d %s' % (
             n, G[n], X[n], 
             [X[n1] for n1 in G[n]] ) 
+    return len(set(X))        
 
     
 def union(list_of_sets):
@@ -460,7 +461,7 @@ def do_search(G, X, n_colors, Cso):
         check_counts(G, n_colors, X, n_cc, n_bc)
         #print '++++', v, ([solutions[i][0] for i in range(min(10,len(solutions)))], 
         #                  [solutions[-i-1][0] for i in range(min(10,len(solutions)))] )  
-        if hash(X) in tested:
+        if hash(normalize(X)) in tested:
             continue
         tested.add(hash(X))    
         
@@ -478,7 +479,8 @@ def do_search(G, X, n_colors, Cso):
             if n_col < best_n_col:    
                 normX = normalize(X)
                 print 'best_X', v, n_col, color_counts(normX, n_colors), normX
-                validate(G, X)
+                n_col_actual = validate(G, X)
+                assert n_col == n_col_actual, 'n_col=%d n_col_actual=%d' % (n_col, n_col_actual)
             best_v = v
             best_X = X[:]
             best_n_col = n_col
@@ -488,14 +490,15 @@ def do_search(G, X, n_colors, Cso):
         if len(tested) % 10 == 1:
             needs_perturbation = True
             
-        if needs_perturbation and all(x == 0 for x in n_bc):
+        if needs_perturbation: #  and all(x == 0 for x in n_bc):
             needs_perturbation = False
             print 'perturbations',
             for X1 in perturb_by_class(G, X, Cso, n_colors):
-                if hash(X1) in tested:
+                if hash(normalize(X1)) in tested:
                     continue
                 n_cc1 = color_counts(X1, n_colors)
-                n_bc1 = [0] * n_colors
+                n_bc1 = broken_counts(G, n_colors, X1)
+                check_counts(G, n_colors, X1, n_cc1, n_bc1)
                 v1 = objective(n_cc1, n_bc1)
                 print v1, 
                 solutions.insert((v1, X1, n_cc1, n_bc1))
@@ -528,10 +531,9 @@ def do_search(G, X, n_colors, Cso):
                     check_counts(G, n_colors, X2, n_cc2, n_bc2)
                     v2 = objective(n_cc2, n_bc2)
                     #assert v2 == v + after - before
-                    tX2 = normalize(X2)
-                    if hash(tX2) in tested:
+                    if hash(normalize(X2)) in tested:
                         continue
-                    solutions.insert((v + after - before, tX2, n_cc2, n_bc2))
+                    solutions.insert((v + after - before, tuple(X2), n_cc2, n_bc2))
 
     return best_X                    
                     
