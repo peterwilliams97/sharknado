@@ -519,32 +519,39 @@ def do_search(G, X, n_colors, Cso, solutions):
                 print v1, 
                 
             print    
+            
+        def op1(c, c0):
+            n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = n_cc[c0], n_cc[c], n_bc[c0], n_bc[c]
+            before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
+            n_cc_c0 -= 1
+            n_cc_c += 1
+            n_bc_c0 -= sum(int(X[n1] == c0) for n1 in G[n])
+            n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
+            after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
+            return before, after, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
         
+        
+        current_colors = set(X)
         for n in G:
             c0 = X[n]
-            for c in range(n_colors):
+            for c in current_colors: #range(n_colors):
                 # Looking for a new color
                 if c == c0:
                     continue
-                #X2[n] = c
-                #d = delta(n, c, n_cc[c0], n_cc[c], n_bc[c0], n_bc[c])
-                c0 = X[n]
                 # Can't remove any c0 color nodes if none exist
                 if n_cc[c0] == 0:
                     continue
-                n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = n_cc[c0], n_cc[c], n_bc[c0], n_bc[c]
-                before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
-                n_cc_c0 -= 1
-                n_cc_c += 1
-                n_bc_c0 -= sum(int(X[n1] == c0) for n1 in G[n])
-                n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
-                after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
-                #print '&', before, after
-                # !@#$ Apply a GA test here?
-                # if after < before:
-                #   temp = ?
-                #   delta = after - before
-                #   if v + after - before >= best_v or rand() < exp(-delta/temp):
+                if False:    
+                    n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = n_cc[c0], n_cc[c], n_bc[c0], n_bc[c]
+                    before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
+                    n_cc_c0 -= 1
+                    n_cc_c += 1
+                    n_bc_c0 -= sum(int(X[n1] == c0) for n1 in G[n])
+                    n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
+                    after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
+                
+                before, after, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = op1(c, c0)
+    
                 if after < before: #and v + after - before >= best_v:
                     X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
                     X2[n] = c
