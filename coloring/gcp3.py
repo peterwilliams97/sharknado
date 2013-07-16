@@ -26,13 +26,30 @@
           
           Search by distance(X, best_X)
           
-          Global solutions
+          Global solutions list
+          
+          set with maxlen
+            set 
+            dict with lru count
+            
+            add(elt):
+                lru += 1
+                dict[elt] = lru
+                if elt not in set:
+                    set.add(elt)
+                    if len(set) >= maxlen:
+                        victim = min(dict.keys(), key=lambda k: dict[k])
+                        del set[victim]
+                        del dict[victim]
           
 """
 from __future__ import division
 from itertools import count
 from collections import defaultdict
 import pprint
+
+VERSION = 1
+print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
 
@@ -177,6 +194,7 @@ def union(list_of_sets):
 def populate(G, X, Cso): 
     # Color the graph somewhat like http://carajcy.blogspot.com.au/2013/01/dsatur.html
     # Start with largest clique
+    # Do a real DSTATUR !@#$
     cs, co = Cso[0]
        
     # Color the other cliques
@@ -415,7 +433,7 @@ def broken_counts(G, n_colors, X):
 
 def check_counts(G, n_colors, X, n_cc, n_bc):
 
-    !@#$
+    # !@#$
     return
     
     counts = color_counts(X, n_colors)
@@ -558,7 +576,8 @@ def do_search(G, X, n_colors, Cso):
                 # !@#$ Apply a GA test here?
                 # if after < before:
                 #   temp = ?
-                #   if v + after - before >= best_v or rand() > exp(-temp):
+                #   delta = after - before
+                #   if v + after - before >= best_v or rand() < exp(-delta/temp):
                 if after < before: #and v + after - before >= best_v:
                     X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
                     X2[n] = c
