@@ -507,18 +507,19 @@ def do_search(G, X, n_colors, Cso, solutions):
 
         if len(tested) % 10 == 1:
             needs_perturbation = True
-            
-        if needs_perturbation: #  and all(x == 0 for x in n_bc):
-            needs_perturbation = False
-            print 'perturbations',
-            for X1 in perturb_by_class(G, X, Cso, n_colors):
-                X1 = do_kempe(G, X1, n_colors)
-                if hash(normalize(X1)) in tested:
-                    continue
-                v1 = add_solution(solutions, G, n_colors, X1)    
-                print v1, 
-                
-            print    
+           
+        if False:
+            if needs_perturbation: #  and all(x == 0 for x in n_bc):
+                needs_perturbation = False
+                print 'perturbations',
+                for X1 in perturb_by_class(G, X, Cso, n_colors):
+                    X1 = do_kempe(G, X1, n_colors)
+                    if hash(normalize(X1)) in tested:
+                        continue
+                    v1 = add_solution(solutions, G, n_colors, X1)    
+                    print v1, 
+                    
+                print    
             
         def op1(c, c0):
             n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = n_cc[c0], n_cc[c], n_bc[c0], n_bc[c]
@@ -528,40 +529,87 @@ def do_search(G, X, n_colors, Cso, solutions):
             n_bc_c0 -= sum(int(X[n1] == c0) for n1 in G[n])
             n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
             after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
-            return before, after, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
+            return after - before, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
+            
         
         
         current_colors = set(X)
-        for n in G:
-            c0 = X[n]
-            for c in current_colors: #range(n_colors):
-                # Looking for a new color
-                if c == c0:
-                    continue
-                # Can't remove any c0 color nodes if none exist
-                if n_cc[c0] == 0:
-                    continue
-                if False:    
-                    n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = n_cc[c0], n_cc[c], n_bc[c0], n_bc[c]
-                    before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
-                    n_cc_c0 -= 1
-                    n_cc_c += 1
-                    n_bc_c0 -= sum(int(X[n1] == c0) for n1 in G[n])
-                    n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
-                    after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
-                
-                before, after, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = op1(c, c0)
-    
-                if after < before: #and v + after - before >= best_v:
-                    X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
-                    X2[n] = c
-                    n_cc2[c0], n_cc2[c], n_bc2[c0], n_bc2[c] =  n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
-                    check_counts(G, n_colors, X2, n_cc2, n_bc2)
-                    v2 =  bc_objective(n_colors, n_cc2, n_bc2) 
-                    #assert v2 == v + after - before
-                    if hash(normalize(X2)) in tested:
+        
+        if False:
+            for n in G:
+                c0 = X[n]
+                for c in current_colors: #range(n_colors):
+                    # Looking for a new color
+                    if c == c0:
                         continue
-                    solutions.insert((v + after - before, tuple(X2), n_cc2, n_bc2))
+                    # Can't remove any c0 color nodes if none exist
+                    if n_cc[c0] == 0:
+                        continue
+                    if False:    
+                        n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = n_cc[c0], n_cc[c], n_bc[c0], n_bc[c]
+                        before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
+                        n_cc_c0 -= 1
+                        n_cc_c += 1
+                        n_bc_c0 -= sum(int(X[n1] == c0) for n1 in G[n])
+                        n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
+                        after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
+                    
+                    diff, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = op1(c, c0)
+        
+                    if diff > 0: #and v + after - before >= best_v:
+                        X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
+                        X2[n] = c
+                        n_cc2[c0], n_cc2[c], n_bc2[c0], n_bc2[c] =  n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
+                        check_counts(G, n_colors, X2, n_cc2, n_bc2)
+                        v2 =  bc_objective(n_colors, n_cc2, n_bc2) 
+                        #assert v2 == v + after - before
+                        if hash(normalize(X2)) in tested:
+                            continue
+                        solutions.insert((v + diff, tuple(X2), n_cc2, n_bc2))
+                    
+        for n1 in G:
+            for n2 in G:
+                if n1 == n2:
+                    continue
+                c01 = X[n1]
+                c02 = X[n2]
+                for c1 in current_colors: 
+                    # Looking for a new color
+                    if c1 == c01:
+                        continue
+                    # Can't remove any c0 color nodes if none exist
+                    if n_cc[c01] == 0:
+                        continue
+                    for c2 in current_colors: 
+                        # Looking for a new color
+                        if c2 == c02:
+                            continue
+                        # Can't remove any c0 color nodes if none exist
+                        if n_cc[c02] == 0:
+                            continue
+                        # Need this so op1 can be applied twice    
+                        if c1 == c2:
+                            continue
+                        if c01 == c02:
+                            continue    
+                    
+                    
+                    diff1, n_cc_c01, n_cc_c1, n_bc_c01, n_bc_c1 = op1(c1, c01)
+                    diff2, n_cc_c02, n_cc_c2, n_bc_c02, n_bc_c2 = op1(c2, c02)
+                    diff = diff1 + diff2
+        
+                    if diff > 0: #and v + after - before >= best_v:
+                        X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
+                        X2[n1] = c1
+                        X2[n2] = c2
+                        n_cc2[c01], n_cc2[c1], n_bc2[c01], n_bc2[c1] = n_cc_c01, n_cc_c1, n_bc_c01, n_bc_c1
+                        n_cc2[c02], n_cc2[c2], n_bc2[c02], n_bc2[c2] = n_cc_c02, n_cc_c2, n_bc_c02, n_bc_c2
+                        check_counts(G, n_colors, X2, n_cc2, n_bc2)
+                        v2 =  bc_objective(n_colors, n_cc2, n_bc2) 
+                        #assert v2 == v + after - before
+                        if hash(normalize(X2)) in tested:
+                            continue
+                        solutions.insert((v + diff, tuple(X2), n_cc2, n_bc2))            
 
     return best_X                    
     
