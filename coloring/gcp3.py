@@ -414,6 +414,10 @@ def broken_counts(G, n_colors, X):
 
 
 def check_counts(G, n_colors, X, n_cc, n_bc):
+
+    !@#$
+    return
+    
     counts = color_counts(X, n_colors)
     broken = broken_counts(G, n_colors, X)
     assert counts == n_cc, '''
@@ -551,6 +555,10 @@ def do_search(G, X, n_colors, Cso):
                 n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
                 after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
                 #print '&', before, after
+                # !@#$ Apply a GA test here?
+                # if after < before:
+                #   temp = ?
+                #   if v + after - before >= best_v or rand() > exp(-temp):
                 if after < before: #and v + after - before >= best_v:
                     X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
                     X2[n] = c
