@@ -26,6 +26,8 @@
           
           Search by distance(X, best_X)
           
+          Global solutions
+          
 """
 from __future__ import division
 from itertools import count
