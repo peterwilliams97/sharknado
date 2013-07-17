@@ -41,6 +41,13 @@
                         victim = min(dict.keys(), key=lambda k: dict[k])
                         del set[victim]
                         del dict[victim]
+                        
+                        
+          incremental/partial optk
+            compute all opt1 for n
+            save 10 biggest improvements
+            compute 9 * 10 = 90 pairs of opt2 from these
+            save largets
           
 """
 from __future__ import division
