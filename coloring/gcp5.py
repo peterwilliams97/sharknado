@@ -556,7 +556,7 @@ def do_search(G, X, n_colors, Cso, solutions):
                 if diff < 0:
                     moves_1.append((diff, n, c, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c))
             # Most profitable moves first        
-            moves_1.sort(key=lambda x: -x[0])
+            moves_1.sort(key=lambda x: x[0])
             
         if not moves_1:
             # Local minimum
@@ -593,23 +593,27 @@ def do_search(G, X, n_colors, Cso, solutions):
         # Overlapping pairs need to be computed from scratch
         overlapping_pairs = []    
        
-        #for m in moves_1[:10]:
-        #    print '  ', m, m[0] + v, best_v
+        for m in moves_1[:10]:
+            print '  ', m, (m[0] + v, best_v, m), m[0] + v - best_v 
         print '@@2 1 moves', len(moves_1) #, len(G) #, sum(len(v) for v in G.values())
         for i2 in range(1, len(moves_1)):
             n, c = moves_1[i2][1:3]
             # Graph neighbor of nodes with color c or c0
             c0 = X[n]
             neighbors = union(G[nn] for nn in G if X[nn] == c or X[nn] == c0) 
+            colors = set([c, c0])
             for i1 in range(i2):
-                n, c = moves_1[i2][1:3]
+                n, c = moves_1[i1][1:3]
                 c0 = X[n]
-                if any(nn in neighbors for nn in G if X[nn] == c or X[nn] == c0):
+                if any(nn in neighbors for nn in G if (X[nn] == c or X[nn] == c0)) or c in colors or c0 in colors:
+                    overlapping_pairs.append((i1, i2))
+                else:    
                     if len(disjoint_pairs) < 10:
                         disjoint_pairs.append((i1, i2))
-                else:    
-                    overlapping_pairs.append((i1, i2))
-        disjoint_pairs.sort(key=lambda x: -moves_1[x[0]][0] -moves_1[x[1]][0])         
+    
+                    
+        # Most negative first            
+        disjoint_pairs.sort(key=lambda x: moves_1[x[0]][0] + moves_1[x[1]][0])         
         
         print '@@3 disjoint_pairs', len(disjoint_pairs)
         if disjoint_pairs:
@@ -626,7 +630,41 @@ def do_search(G, X, n_colors, Cso, solutions):
                 #assert v2 == v + after - before
                 if hash(normalize(X2)) in tested:
                     continue
+                    
+                # !@#$
+                n_col_a = len([x for x in n_cc2 if x > 0]) 
+               
+                m1, m2 = moves_1[i1], moves_1[i2]
+                assert n_col_a == n_col_b, '%d %d\n%s %d %d %s\n%s %d %d %s' % (n_col_a, n_col_b,
+                            m1, X[m1[1]], m1[2], [X[nn] for nn in G[m1[1]]],
+                            m2, X[m2[1]], m2[2], [X[nn] for nn in G[m2[1]]])                
                 solutions.insert((v + total_diff, tuple(X2), n_cc2, n_bc2)) 
+        else:    
+
+            for diff, n, c, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c  in moves_1[:100]:
+                X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
+                X2[n] = c
+                n_cc2[c0], n_cc2[c], n_bc2[c0], n_bc2[c] =  n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
+                check_counts(G, n_colors, X2, n_cc2, n_bc2)
+     
+                #v2 =  bc_objective(n_colors, n_cc2, n_bc2) 
+                #assert v2 == v + after - before
+                if hash(normalize(X2)) in tested:
+                    continue
+                # !@#$
+                n_col_a = len([x for x in n_cc if x > 0]) 
+                n_col_b = validate(G, X)
+                assert n_col_a == n_col_b, '%d %d' % (n_col_a, n_col_b)
+                assert n_col_a == n_col_b  
+                
+                n_col_a = len([x for x in n_cc2 if x > 0]) 
+                n_col_b = validate(G, X2)
+                assert n_col_a == n_col_b, '%d %d' % (n_col_a, n_col_b)
+                assert n_col_a == n_col_b     
+                
+                    
+                solutions.insert((v + diff, tuple(X2), n_cc2, n_bc2))         
+                
 
         print '@@4 overlapping_pairs', len(overlapping_pairs)    
         for i1, i2 in overlapping_pairs:
@@ -640,6 +678,12 @@ def do_search(G, X, n_colors, Cso, solutions):
             if v2 < v:
                 if hash(normalize(X2)) in tested:
                     continue
+                # !@#$
+                n_col_a = len([x for x in n_cc2 if x > 0]) 
+                n_col_b = validate(G, X2)
+                assert n_col_a == n_col_b, '%d %d' % (n_col_a, n_col_b)
+                assert n_col_a == n_col_b       
+                    
                 solutions.insert((v2, X2, n_cc2, n_bc2))    
         print '@@5'    
  
