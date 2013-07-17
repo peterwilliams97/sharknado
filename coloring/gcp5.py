@@ -48,7 +48,7 @@ from itertools import count
 from collections import defaultdict
 import pprint
 
-VERSION = 1
+VERSION = 2
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -609,7 +609,7 @@ def do_search(G, X, n_colors, Cso, solutions):
                         disjoint_pairs.append((i1, i2))
                 else:    
                     overlapping_pairs.append((i1, i2))
-        disjoint_pairs.sort(key=lambda x: -moves_1[x[0]][0] - -moves_1[x[1]][0])         
+        disjoint_pairs.sort(key=lambda x: -moves_1[x[0]][0] -moves_1[x[1]][0])         
         
         print '@@3 disjoint_pairs', len(disjoint_pairs)
         if disjoint_pairs:
