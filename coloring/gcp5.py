@@ -490,24 +490,25 @@ def do_search(G, X, n_colors, Cso, solutions):
         print '*', (v, n_col), len(solutions), len(tested), (best_v, best_n_col) #, X, n_cc, n_bc
             
         #if n_col < best_n_col or (n_col == best_n_col and v < best_v):
-        if v < best_v:
-            #X1 = do_kempe(G, X, n_colors)
-            #if hash(normalize(X1)) not in tested:
-            #    v1 = add_solution(solutions, G, n_colors, X1)
-            #    print 'adding kempe ^^^', v1
-                
-            if n_col < best_n_col:    
-                normX = normalize(X)
-                print 'best_X', v, n_col, color_counts(normX, n_colors), normX
-                #n_col_actual = validate(G, X)
-                #assert n_col == n_col_actual, 'n_col=%d n_col_actual=%d' % (n_col, n_col_actual)
-            best_v = v
-            best_X = X[:]
-            best_n_col = n_col
-            needs_perturbation = True
+        if False:
+            if v < best_v:
+                #X1 = do_kempe(G, X, n_colors)
+                #if hash(normalize(X1)) not in tested:
+                #    v1 = add_solution(solutions, G, n_colors, X1)
+                #    print 'adding kempe ^^^', v1
+                    
+                if n_col < best_n_col:    
+                    normX = normalize(X)
+                    print 'best_X', v, n_col, color_counts(normX, n_colors), normX
+                    #n_col_actual = validate(G, X)
+                    #assert n_col == n_col_actual, 'n_col=%d n_col_actual=%d' % (n_col, n_col_actual)
+                best_v = v
+                best_X = X[:]
+                best_n_col = n_col
+                needs_perturbation = True
 
-        if len(tested) % 10 == 1:
-            needs_perturbation = True
+            if len(tested) % 10 == 1:
+                needs_perturbation = True
            
         if False:
             if needs_perturbation: #  and all(x == 0 for x in n_bc):
@@ -558,10 +559,36 @@ def do_search(G, X, n_colors, Cso, solutions):
             moves_1.sort(key=lambda x: -x[0])
             
         if not moves_1:
+            # Local minimum
+            print 'Local minumum, v=%d' % v
+            #if v < best_v:
+            #X1 = do_kempe(G, X, n_colors)
+            #if hash(normalize(X1)) not in tested:
+            #    v1 = add_solution(solutions, G, n_colors, X1)
+            #    print 'adding kempe ^^^', v1
+            
+            # !@#$ Should be true at local minimum
+            normX = normalize(X)
+            n_col_actual = validate(G, X)
+            assert n_col == n_col_actual, 'n_col=%d n_col_actual=%d' % (n_col, n_col_actual)    
+            
+            if n_col < best_n_col:    
+                normX = normalize(X)
+                print 'best_X', v, n_col, color_counts(normX, n_colors), normX
+                n_col_actual = validate(G, X)
+                assert n_col == n_col_actual, 'n_col=%d n_col_actual=%d' % (n_col, n_col_actual)
+                best_X = X[:]
+                best_n_col = n_col
+            #best_v = v
+            #best_X = X[:]
+            #best_n_col = n_col
+            #needs_perturbation = True
+        
             continue
             
             
-        # disjoint pairs can be updated cheaply            
+        # disjoint pairs can be updated cheaply  
+        # Just add all these !@#$    
         disjoint_pairs = []   
         # Overlapping pairs need to be computed from scratch
         overlapping_pairs = []    
