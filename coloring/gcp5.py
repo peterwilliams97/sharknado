@@ -382,7 +382,7 @@ def broken_counts(G, n_colors, X):
 def check_counts(G, n_colors, X, n_cc, n_bc):
 
     # !@#$
-    return
+    #return
     
     counts = color_counts(X, n_colors)
     broken = broken_counts(G, n_colors, X)
@@ -476,6 +476,7 @@ def do_search(G, X, n_colors, Cso, solutions):
     needs_perturbation = False
     
     while solutions: 
+        print '@@0', [solutions[i][0] for i in range(min(len(solutions), 10))]
         v, X, n_cc, n_bc = solutions.popleft()
         check_counts(G, n_colors, X, n_cc, n_bc)
         #print '++++', v, ([solutions[i][0] for i in range(min(10,len(solutions)))], 
@@ -540,8 +541,10 @@ def do_search(G, X, n_colors, Cso, solutions):
         
         print '@@1'
         # Build a list of op1 that improve the search
+        best_move_diff = 0 
         for n in G:
             c0 = X[n]
+            assert n_cc[c0] > 0
             for c in current_colors - set([c0]): #range(n_colors):
                 # Looking for a new color
                 #if c == c0:
@@ -550,11 +553,16 @@ def do_search(G, X, n_colors, Cso, solutions):
                 # Can't happen as no X[n] would be c0
                 #if n_cc[c0] == 0:
                 #    continue
-               
+                assert c != c0
+                
                 diff, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = op1(n, c)
+                assert n_cc_c0 == n_cc[c0] - 1
+                assert n_cc_c == n_cc[c] + 1
                 #if v + diff > best_v:
                 if diff < 0:
                     moves_1.append((diff, n, c, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c))
+                    if diff < best_move_diff:
+                        best_move_diff = diff 
             # Most profitable moves first        
             moves_1.sort(key=lambda x: x[0])
             
@@ -593,9 +601,11 @@ def do_search(G, X, n_colors, Cso, solutions):
         # Overlapping pairs need to be computed from scratch
         overlapping_pairs = []    
        
+       
         for m in moves_1[:10]:
-            print '  ', m, (m[0] + v, best_v, m), m[0] + v - best_v 
+            print '+++', m, (m[0] + v, best_v), m[0] + v - best_v 
         print '@@2 1 moves', len(moves_1) #, len(G) #, sum(len(v) for v in G.values())
+        
         for i2 in range(1, len(moves_1)):
             n, c = moves_1[i2][1:3]
             # Graph neighbor of nodes with color c or c0
@@ -617,6 +627,7 @@ def do_search(G, X, n_colors, Cso, solutions):
         
         print '@@3 disjoint_pairs', len(disjoint_pairs)
         if disjoint_pairs:
+            exit()
             for i1, i2 in disjoint_pairs[:100]:
                 X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
                 total_diff = 0
@@ -642,9 +653,14 @@ def do_search(G, X, n_colors, Cso, solutions):
         else:    
 
             for diff, n, c, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c  in moves_1[:100]:
+#moves_1.appen((diff, n, c, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c))
+                c0 = X[n]
                 X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
                 X2[n] = c
+                #print '>>', n_cc2[c0], n_cc2[c], n_bc2[c0], n_bc2[c]
+                #print '<<', n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
                 n_cc2[c0], n_cc2[c], n_bc2[c0], n_bc2[c] =  n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
+                check_counts(G, n_colors, X, n_cc, n_bc)
                 check_counts(G, n_colors, X2, n_cc2, n_bc2)
      
                 #v2 =  bc_objective(n_colors, n_cc2, n_bc2) 
@@ -666,8 +682,8 @@ def do_search(G, X, n_colors, Cso, solutions):
                 solutions.insert((v + diff, tuple(X2), n_cc2, n_bc2))         
                 
 
-        print '@@4 overlapping_pairs', len(overlapping_pairs)    
-        for i1, i2 in overlapping_pairs:
+        print '@@4 overlapping_pairs', len(overlapping_pairs), 'best_move_diff', best_move_diff    
+        for i, (i1, i2) in enumerate(overlapping_pairs):
             X2 = list(X)
             for _, n, c, _, _, _, _ in moves_1[i1], moves_1[i2]: 
                 X2[n] = c
@@ -676,6 +692,11 @@ def do_search(G, X, n_colors, Cso, solutions):
             check_counts(G, n_colors, X2, n_cc2, n_bc2)
             v2 = bc_objective(n_colors, n_cc2, n_bc2) 
             if v2 < v:
+                if v2 - v >= best_move_diff:
+                    continue
+                if i < 10:
+                    print '>>overlapping', (i1, i2), (v2, v), v2 - v 
+           
                 if hash(normalize(X2)) in tested:
                     continue
                 # !@#$
