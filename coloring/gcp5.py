@@ -48,7 +48,7 @@ from itertools import count
 from collections import defaultdict
 import pprint
 
-VERSION = 3
+VERSION = 4
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -433,6 +433,7 @@ def add_solution(solutions, G, n_colors, X):
     
 DEQU_LEN = 10000 
   
+import random  
 from utils import SortedDeque
     
 def do_search(G, X, n_colors, Cso, solutions):
@@ -477,7 +478,16 @@ def do_search(G, X, n_colors, Cso, solutions):
     
     while solutions: 
         print '@@0', [solutions[i][0] for i in range(min(len(solutions), 10))]
-        v, X, n_cc, n_bc = solutions.popleft()
+        
+        if next(counter) % 3 == 0 and len(solutions) > 10:
+            
+            i = random.randint(5, len(solutions) - 1)
+            print '$$$$$$ Im feeling lucky', i
+            # !@#$ Should rotate pop rotate
+            v, X, n_cc, n_bc = solutions[i]
+     
+        else:    
+            v, X, n_cc, n_bc = solutions.popleft()
         check_counts(G, n_colors, X, n_cc, n_bc)
         #print '++++', v, ([solutions[i][0] for i in range(min(10,len(solutions)))], 
         #                  [solutions[-i-1][0] for i in range(min(10,len(solutions)))] )  
@@ -651,7 +661,7 @@ def do_search(G, X, n_colors, Cso, solutions):
                             m2, X[m2[1]], m2[2], [X[nn] for nn in G[m2[1]]])                
                 solutions.insert((v + total_diff, tuple(X2), n_cc2, n_bc2)) 
         else:    
-
+            best_move_diff = 0 
             for diff, n, c, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c  in moves_1[:100]:
 #moves_1.appen((diff, n, c, n_cc_c0, n_cc_c, n_bc_c0, n_bc_c))
                 c0 = X[n]
@@ -667,6 +677,10 @@ def do_search(G, X, n_colors, Cso, solutions):
                 #assert v2 == v + after - before
                 if hash(normalize(X2)) in tested:
                     continue
+                    
+                if diff < best_move_diff:
+                    best_move_diff = diff
+                    
                 # !@#$
                 n_col_a = len([x for x in n_cc if x > 0]) 
                 n_col_b = validate(G, X)
