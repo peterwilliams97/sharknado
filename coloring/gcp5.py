@@ -48,7 +48,7 @@ from itertools import count
 from collections import defaultdict
 import pprint
 
-VERSION = 2
+VERSION = 3
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
