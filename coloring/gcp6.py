@@ -508,12 +508,11 @@ def do_search(G, X, n_colors, Cso, solutions):
         nX = normalize(X)
         hX = hash(nX)
         #print 'tested', hX, tested
-        if hX in tested:
-            #print '*tested'
-            stack.append(L)
-            continue
-        tested.add(hX)
-       
+        #if hX in tested:
+        #    print '        tested'
+        #    stack.append(L)
+        #    continue
+               
         
         # Changing to a more numerous color is usually better
         colors = sorted([i for i, c in enumerate(n_cc) if c], key=lambda x: -x)
@@ -531,15 +530,19 @@ def do_search(G, X, n_colors, Cso, solutions):
                 if diff >= 0: continue
                 moves_1.append((n, c, diff, n_bc_c0, n_bc_c))
              
-        print '    -- moves_1', len(moves_1), [x[0] for x in moves_1]        
+        print '    --- moves_1', len(moves_1), [x[0] for x in moves_1]        
         if not moves_1:
             # Local minimum
+            print '    **** mininum', len(set(X)), best_cX_list[0][0]  
             add_best(nX)
-            print '*mininum'
+           
+            tested.add(hX)
             continue
+            
         biggest_diff = min(diff for _,_,diff,_,_ in moves_1)        
         moves_1 = [x for x in moves_1 if x[2] <= biggest_diff]
-        print '   ++ moves_1',[x[2] for x in moves_1]
+        print '    +++ moves_1', len(moves_1), [x[2] for x in moves_1]
+        assert moves_1
         L1 = [apply1(v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c) 
                     for n, c, diff, n_bc_c0, n_bc_c in moves_1]
         L1.sort()            
