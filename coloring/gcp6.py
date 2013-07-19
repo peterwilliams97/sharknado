@@ -438,6 +438,11 @@ from utils import SortedDeque
 def op1(G, X, n, c, n_cc, n_bc):
     """Change color of G[n] to c and compute changes"""
     c0 = X[n]
+    #print 'op1', n, c0, c, n_cc, n_bc
+    assert 0 <= c < len(n_cc), c
+    assert 0 <= c < len(n_bc), c
+    assert 0 <= c0 < len(n_cc), c0
+    assert 0 <= c0 < len(n_bc), c0 
     n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = n_cc[c0], n_cc[c], n_bc[c0], n_bc[c]
     before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
     n_cc_c0 -= 1
@@ -455,9 +460,9 @@ def apply1(v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c):
     X1[n] = c
     n_cc1[c0] -= 1
     n_cc1[c] += 1
-    n_bc_c[c0] -= n_bc_c0
-    n_bc_c[c] -= n_bc_c
-    return v + diff, X, n_cc1, n_bc1
+    n_bc[c0] -= n_bc_c0
+    n_bc[c] -= n_bc_c
+    return v + diff, X1, n_cc1, n_bc1
     
 def do_search(G, X, n_colors, Cso, solutions):
     """Local search around X using sum(2*|B[i]||C[i]| - |C[i]|^2) objective
@@ -492,21 +497,28 @@ def do_search(G, X, n_colors, Cso, solutions):
     add_best(normalize(X))
     
     while stack:
+        print '**stack:', len(stack), [len(x) for x in stack]    
         L = stack.pop()
         if not L:
+            #print '*done with', len(stack) + 1
             continue
+         
         v, X, n_cc, n_bc = L.pop()     # L is sorted worst to best
         
         nX = normalize(X)
         hX = hash(nX)
+        #print 'tested', hX, tested
         if hX in tested:
+            #print '*tested'
+            stack.append(L)
             continue
         tested.add(hX)
+       
         
         # Changing to a more numerous color is usually better
-        colors = sorted([c for c in n_cc if c], key=lambda x: -x)
+        colors = sorted([i for i, c in enumerate(n_cc) if c], key=lambda x: -x)
         order = list(G.keys())
-        print '*', len(order), len(colors), n_colors
+        #print '*', len(order), len(colors), n_colors
         assert len(colors) == len(set(X))
         # Changing from a lass color is usually better
         order.sort(key=lambda n: n_cc[X[n]])
@@ -519,19 +531,22 @@ def do_search(G, X, n_colors, Cso, solutions):
                 if diff >= 0: continue
                 moves_1.append((n, c, diff, n_bc_c0, n_bc_c))
              
-        print 'moves_1', [x[0] for x in moves_1]        
+        print '    -- moves_1', len(moves_1), [x[0] for x in moves_1]        
         if not moves_1:
             # Local minimum
             add_best(nX)
+            print '*mininum'
             continue
         biggest_diff = min(diff for _,_,diff,_,_ in moves_1)        
         moves_1 = [x for x in moves_1 if x[2] <= biggest_diff]
+        print '   ++ moves_1',[x[2] for x in moves_1]
         L1 = [apply1(v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c) 
                     for n, c, diff, n_bc_c0, n_bc_c in moves_1]
         L1.sort()            
-        stack.push(L)
-        stack.push(L1)
+        stack.append(L)
+        stack.append(L1)
     
+    print 'best_cX_list', [c for c,_ in best_cX_list]
     exit()
     return best_cX_list[0][1]                    
     
