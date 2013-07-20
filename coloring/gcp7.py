@@ -47,8 +47,9 @@ from __future__ import division
 from itertools import count
 from collections import defaultdict
 import pprint
+import copy
 
-VERSION = 5
+VERSION = 7
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -436,7 +437,7 @@ from utils import SortedDeque
 #from numba import autojit, jit, double
 
 #@autojit
-def op1(G, X, n, c, n_cc, n_bc):
+def op1(G, X_C, X, n, c, n_cc, n_bc):
     """Change color of G[n] to c and compute changes"""
     c0 = X[n]
     #print 'op1', n, c0, c, n_cc, n_bc
@@ -448,12 +449,34 @@ def op1(G, X, n, c, n_cc, n_bc):
     before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
     n_cc_c0 -= 1
     n_cc_c += 1
-    n_bc_c0 -= sum(int(X[n1] == c0) for n1 in G[n])
-    n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
+    assert X_C[n][c0] == sum(int(X[n1] == c0) for n1 in G[n])
+    assert X_C[n][c]  == sum(int(X[n1] == c)  for n1 in G[n])
+    n_bc_c0 -= X_C[n][c0] # sum(int(X[n1] == c0) for n1 in G[n])
+    n_bc_c  += X_C[n][c] #sum(int(X[n1] == c)  for n1 in G[n])
     after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
     return after - before, n_bc_c0, n_bc_c
     
-def apply1(v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c):
+def update_X_C(G, X, X_C, c0, c1):
+    print '$$$$$$$$$$$$$$$$$$ update_X_C'
+    
+    n_colors = len(X_C[0])
+    for n in range(len(G)):
+        for c in range(n_colors):
+            assert X_C[n][c] == sum(int(X[n1] == c) for n1 in G[n]) 
+    
+    X_C = copy.deepcopy(X_C)
+    for n in range(len(G)):
+        for c in c0, c1:
+            if c in G[n]:
+                X_C[n][c] = sum(int(X[n1] == c) for n1 in G[n])
+                
+   
+    for n in range(len(G)):
+        for c in range(n_colors):
+            assert X_C[n][c] == sum(int(X[n1] == c) for n1 in G[n])            
+    return X_C        
+    
+def apply1(G, v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c, X_C):
     c0 = X[n]
     X1 = list(X)
     n_cc1 = n_cc[:]
@@ -463,11 +486,22 @@ def apply1(v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c):
     n_cc1[c] += 1
     n_bc[c0] -= n_bc_c0
     n_bc[c] -= n_bc_c
-    return v + diff, X1, n_cc1, n_bc1
+    
+    #X_C1 = update_X_C(G, X, X_C, c0, c)
+    N = len(X_C)
+    n_colors = len(X_C[0])
+    X_C1 = [[0] * n_colors for _ in range(N)]
+    for n in range(N):
+        for c in range(n_colors):
+            X_C1[n][c] = sum(int(X1[n1] == c) for n1 in G[n])
+    
+    return v + diff, X1, n_cc1, n_bc1, X_C1
     
 def do_search(G, X, verbose=False):
     """Local search around X using sum(2*|B[i]||C[i]| - |C[i]|^2) objective
     """
+    
+    #verbose = True
     n_colors = len(set(X))
     # color_classes[c] = nodes with color c
     color_classes = [set([n for n, x in enumerate(X) if x == c]) for c in range(n_colors)]
@@ -479,10 +513,19 @@ def do_search(G, X, verbose=False):
     # We only need counts for our objective functions
     n_cc = [len(color_classes[c]) for c in range(n_colors)]
     n_bc = [len(broken_classes[c]) for c in range(n_colors)]
+    
+    # X_C[n][c] = Color collisions for X[n] if X[n] == c 
+    N = len(G)
+    X_C = [[0] * n_colors for _ in range(N)]
+    for n in range(N):
+        for c in range(n_colors):
+            X_C[n][c] = sum(int(X[n1] == c) for n1 in G[n])
+        
+    
        
     v = bc_objective(n_colors, n_cc, n_bc) 
     
-    stack = [[(v, X, n_cc, n_bc)]]
+    stack = [[(v, X, n_cc, n_bc, X_C)]]
     tested = set()
     
     best_cX_list = SortedDeque([], 1000)
@@ -493,8 +536,8 @@ def do_search(G, X, verbose=False):
         best_cX_list.insert((c, X))
         if verbose and not previous_best_c or c < previous_best_c:
             print 'best_X: c=%d,X=%s' % (c, X)
+     
             
-
     add_best(normalize(X))
     counter = count()
     cnt = 0
@@ -507,16 +550,10 @@ def do_search(G, X, verbose=False):
             #print '*done with', len(stack) + 1
             continue
          
-        v, X, n_cc, n_bc = L.pop()     # L is sorted worst to best
+        v, X, n_cc, n_bc, X_C = L.pop()     # L is sorted worst to best
         
         nX = normalize(X)
         hX = hash(nX)
-        #print 'tested', hX, tested
-        #if hX in tested:
-        #    print '        tested'
-        #    stack.append(L)
-        #    continue
-               
         
         # Changing to a more numerous color is usually better
         colors = sorted([i for i, c in enumerate(n_cc) if c], key=lambda x: -x)
@@ -530,7 +567,7 @@ def do_search(G, X, verbose=False):
             for c in colors:
                 if c == X[n]: continue
                        
-                diff, n_bc_c0, n_bc_c = op1(G, X, n, c, n_cc, n_bc)
+                diff, n_bc_c0, n_bc_c = op1(G, X_C, X, n, c, n_cc, n_bc)
                 if diff >= 0: continue
                 moves_1.append((n, c, diff, n_bc_c0, n_bc_c))
              
@@ -550,9 +587,10 @@ def do_search(G, X, verbose=False):
         if verbose:
             print '    +++ moves_1', len(moves_1), [x[2] for x in moves_1]
         assert moves_1
-        L1 = [apply1(v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c) 
+        L1 = [apply1(G, v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c, X_C) 
                     for n, c, diff, n_bc_c0, n_bc_c in moves_1]
-        L1.sort()            
+        L1.sort()  
+             
         stack.append(L)
         stack.append(L1)
     
@@ -576,7 +614,6 @@ def repopulate(G, X0, Cso2):
     excluded1 = set([c for c, k in color_counts.items() if k <= 1]) 
     excluded2 = set([c for c, k in color_counts.items() if k <= 2])     
     print '** excluded1', len(excluded1), (len(color_counts), len(X)), max(color_counts.values())
-    print '** excluded2', len(excluded2),
     print [(c,color_counts[c]) for c in sorted(color_counts, key=lambda x: -color_counts[x])]
     
     hX0 = hash(X0)
@@ -682,7 +719,7 @@ def solve(n_nodes, n_edges, edges):
     #add_solution(solutions, G, n_colors, X1)
     #add_solution(solutions, G, n_colors, X2)
     
-    while len(solutions) < 10000:
+    while len(solutions) < 100:
         #X = do_kempe(G, X)
         X = normalize(X)
         #add_solution(solutions, G, X)

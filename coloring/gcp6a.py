@@ -426,8 +426,8 @@ def bc_objective(n_colors, n_cc, n_bc):
     
 def add_solution(solutions, G, X):
     n_colors = len(set(X))
-    solutions.insert((n_colors, normalize(X)))
-    print '$$$ best solutions', [v for v,_ in solutions]
+    solutions.insert((n_colors, normalize(X), len(solutions)))
+    print '$$$ best solutions', [v for v,_,_ in solutions]
     return v    
     
 DEQU_LEN = 1000 
@@ -682,9 +682,13 @@ def solve(n_nodes, n_edges, edges):
     #add_solution(solutions, G, n_colors, X1)
     #add_solution(solutions, G, n_colors, X2)
     
-    while len(solutions) < 10000:
+    best_score = len(G)
+    loops_without_improvement = 0
+    
+    while len(solutions) < 1000:
         #X = do_kempe(G, X)
         X = normalize(X)
+            
         #add_solution(solutions, G, X)
         optimal = len(set(set(X))) == n_min
         if not optimal:
@@ -697,13 +701,34 @@ def solve(n_nodes, n_edges, edges):
             break
         print '------------'
         visited = [hash(s[1]) for s in solutions]
-        print 'solutions', len(solutions), [(s[0],hash(s[1])) for s in solutions]
-        print 'visited', len(visited), visited    
+        print 'solutions', len(solutions), [(s[0], (s[2], len(solutions)-s[2]), hash(s[1])) for s in solutions]
+        print 'visited', len(visited), visited   
+
+        if len(solutions) >= 1:
+            max_all = len(solutions) - 1
+            max_min = 0
+            min_k = solutions[0][0]
+            for i, (k, _, _) in enumerate(solutions):
+                if k > min_k:
+                    break
+                max_min = i
+            if random.randrange(0, 3) != 0:
+                max_i = max_min
+            else:
+                max_i = max_all
+            X = solutions[random.randrange(0, max_i+1)][1]
+        
         X = repopulate(G, X, Cso)  
         hX = hash(X)
         print 'hX', hX
         if hX in visited:
             break
+            
+        if s[0] <  best_score:
+            best_score = s[0]
+            loops_without_improvement = 0
+        else:
+            loops_without_improvement += 1
         
     exit()    
          
