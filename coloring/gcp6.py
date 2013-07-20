@@ -427,7 +427,7 @@ def bc_objective(n_colors, n_cc, n_bc):
 def add_solution(solutions, G, X):
     n_colors = len(set(X))
     solutions.insert((n_colors, normalize(X)))
-    print '$$$ best solutions', [v for v,_ in solutions]
+    print '$$$ best solutions', [solutions[i][0] for i in range(min(len(solutions), 20))]
     return v    
     
 DEQU_LEN = 1000 

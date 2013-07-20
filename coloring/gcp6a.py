@@ -425,6 +425,7 @@ def bc_objective(n_colors, n_cc, n_bc):
     
     
 def add_solution(solutions, G, X):
+    validate(G, X)
     n_colors = len(set(X))
     solutions.insert((n_colors, normalize(X), len(solutions)))
     print '$$$ best solutions', [v for v,_,_ in solutions]
@@ -465,7 +466,7 @@ def apply1(v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c):
     n_bc[c] -= n_bc_c
     return v + diff, X1, n_cc1, n_bc1
     
-def do_search(G, X, verbose=False):
+def do_search(G, visited, X, verbose=False):
     """Local search around X using sum(2*|B[i]||C[i]| - |C[i]|^2) objective
     """
     n_colors = len(set(X))
@@ -498,7 +499,8 @@ def do_search(G, X, verbose=False):
     add_best(normalize(X))
     counter = count()
     cnt = 0
-    while stack and (cnt < 100 or len(best_cX_list) < 10):
+    #while stack and (cnt < 100 or len(best_cX_list) < 10):
+    while stack and (cnt < 10000 or len(best_cX_list) < 30):
         if verbose:
             print '**stack %4d:' % cnt, len(stack), [len(x) for x in stack]    
         cnt = next(counter)
@@ -511,12 +513,11 @@ def do_search(G, X, verbose=False):
         
         nX = normalize(X)
         hX = hash(nX)
-        #print 'tested', hX, tested
-        #if hX in tested:
-        #    print '        tested'
-        #    stack.append(L)
-        #    continue
-               
+        if hX in visited:
+            print '        tested'
+            stack.append(L)
+        continue
+              
         
         # Changing to a more numerous color is usually better
         colors = sorted([i for i, c in enumerate(n_cc) if c], key=lambda x: -x)
@@ -560,8 +561,8 @@ def do_search(G, X, verbose=False):
    
     return best_cX_list[0][1]                    
 
-def repopulate(G, X0, Cso2):  
-    print 'repopulate ------------------------'
+def repopulate(G, visited, X0, Cso2):  
+    #print 'repopulate ------------------------'
     X = list(X0)
     color_counts = defaultdict(int)
     for c in X:
@@ -575,9 +576,9 @@ def repopulate(G, X0, Cso2):
     
     excluded1 = set([c for c, k in color_counts.items() if k <= 1]) 
     excluded2 = set([c for c, k in color_counts.items() if k <= 2])     
-    print '** excluded1', len(excluded1), (len(color_counts), len(X)), max(color_counts.values())
-    print '** excluded2', len(excluded2),
-    print [(c,color_counts[c]) for c in sorted(color_counts, key=lambda x: -color_counts[x])]
+    #print '** excluded1', len(excluded1), (len(color_counts), len(X)), max(color_counts.values())
+    #print '** excluded2', len(excluded2),
+    #print [(c,color_counts[c]) for c in sorted(color_counts, key=lambda x: -color_counts[x])]
     
     hX0 = hash(X0)
     for excluded in excluded1, excluded2:
@@ -588,16 +589,15 @@ def repopulate(G, X0, Cso2):
             X = populate2(G, X, Cso2)
             X = normalize(X)
             hX = hash(X)
-            if hX != hX0:
+            if hX != hX0 and hX not in visited:
                 break
-        if hX != hX0:
+        if hX != hX0 and hX not in visited:
             break    
             
-    print 'X0', hash(X0), X0
-    # print 'X ', hash(X), X
-    print 'X', hash(X), X
-    print '---- repopulated'
-    assert hX != hX0
+    #print 'X0', hash(X0), X0
+    #print 'X', hash(X), X
+    #print '---- repopulated'
+    assert hX != hX0 and hX not in visited
     return X    
 
 import random    
@@ -627,84 +627,56 @@ def solve(n_nodes, n_edges, edges):
     n_max = len(G)
     print 'n_min=%d' % (n_min)
     
-    solutions = SortedDeque([], DEQU_LEN)
-    visited = set([])
-    visited_X = set([])
-    X_list = []
-    #X_list.append(populate1(G, X, Cso))
-    #X_list.append(populate2(G, X, Cso))
+    MAX_SOLUTIONS = 10000
     
-    def doneX(X0):
-        X = normalize(X0)
-        hX = hash(X)
-        #hashes = [hash(s[1]) for s in solutions]
-        #print hX, hashes
-        assert hX in hashes
-        #assert hX not in visited
-        if hX in visited:
-            print 'doneX ------------------------'
-            print visited
-            for x in visited_X:
-                print 'x ', hash(X), x
-            print 'X0', hash(X0), X0
-            print 'X ', hash(X),  X
-            print '!!! duplicate'
-            assert False
-            return True
-        visited.add(hX) 
-        visited_X.add(X)    
-        return False
-        
+    solutions = SortedDeque([], MAX_SOLUTIONS)
+    visited = set([])
+            
     X = [-1] * len(G)
     X = populate1(G, X, Cso)    
     
-    if False:
-        Cso2 = Cso[:]
-        for _ in range(10):
-            random.shuffle(Cso2)
-            X = populate1(G, X, Cso2)
-            X = normalize(X)
-            hX = hash(X)
-            assert hX not in visited
-            if hX in visited:
-                continue
-            visited.add(hX)    
-            X_list.append(X)
+     
+    def print_best():
+        max_min = 0
+        min_k = solutions[0][0]
+        for i, (k, _, _) in enumerate(solutions):
+            if k > min_k:
+                break 
+            max_min = i    
+        print '=' * 80
+        print 'best solutions: %d of %d' % (max_min, len(solutions))
+       
+        for i in range(max_min):
+            print i, solutions[i]
+                
+    
+    while len(solutions) < MAX_SOLUTIONS:
         
+        if len(solutions) % 1000 == 2:
+            print_best()
         
-        for X in X_list:
-            X = normalize(X)
-            add_solution(solutions, G, X)
-    
-    #n_colors = max(len(set(X1)), len(set(X2)))
-    
-    
-    #add_solution(solutions, G, n_colors, X1)
-    #add_solution(solutions, G, n_colors, X2)
-    
-    best_score = len(G)
-    loops_without_improvement = 0
-    
-    while len(solutions) < 1000:
         #X = do_kempe(G, X)
         X = normalize(X)
             
         #add_solution(solutions, G, X)
         optimal = len(set(set(X))) == n_min
         if not optimal:
-            X = do_search(G, X)
+            X = do_search(G, visited, X)
             X = normalize(X)
             optimal = len(set(X)) == n_min
             print 'i=%d,optimal=%s' % (len(solutions), optimal)
             add_solution(solutions, G, X)
         if optimal:
             break
-        print '------------'
-        visited = [hash(s[1]) for s in solutions]
-        print 'solutions', len(solutions), [(solutions[i][0], 
-                    (solutions[i][2], len(solutions)-solutions[i][2] -1), hash(s[1])) 
-                        for i in range(min(len(solutions), 40))]
-        print 'visited', len(visited), visited   
+       
+        #visited = [hash(s[1]) for s in solutions]
+       
+        if False:
+            print '------------'
+            print 'solutions', len(solutions), [(solutions[i][0], 
+                        (solutions[i][2], len(solutions)-solutions[i][2] -1), hash(s[1])) 
+                            for i in range(min(len(solutions), 40))]
+            print 'visited', len(visited), visited   
 
         if len(solutions) >= 1:
             max_all = len(solutions) - 1
@@ -720,17 +692,16 @@ def solve(n_nodes, n_edges, edges):
                 max_i = max_all
             X = solutions[random.randrange(0, max_i+1)][1]
         
-        X = repopulate(G, X, Cso)  
+        X = repopulate(G, visited, X, Cso)  
         hX = hash(X)
         print 'hX', hX
         if hX in visited:
             break
             
-        if s[0] <  best_score:
-            best_score = s[0]
-            loops_without_improvement = 0
-        else:
-            loops_without_improvement += 1
+        
+    
+    print 'Done'
+    print_best()
         
     exit()    
          
