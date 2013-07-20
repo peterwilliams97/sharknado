@@ -644,9 +644,9 @@ def solve(n_nodes, n_edges, edges):
                 break 
             max_min = i    
         print '=' * 80
-        print 'best solutions: %d of %d' % (max_min, len(solutions))
+        print 'best solutions: %d of %d' % (max_min + 1, len(solutions))
        
-        for i in range(max_min):
+        for i in range(max_min + 1):
             print i, solutions[i]
                 
     
