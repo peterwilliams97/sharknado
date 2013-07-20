@@ -48,7 +48,7 @@ from itertools import count
 from collections import defaultdict
 import pprint
 
-VERSION = 5
+VERSION = 9
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -701,7 +701,9 @@ def solve(n_nodes, n_edges, edges):
             break
         print '------------'
         visited = [hash(s[1]) for s in solutions]
-        print 'solutions', len(solutions), [(s[0], (s[2], len(solutions)-s[2]), hash(s[1])) for s in solutions]
+        print 'solutions', len(solutions), [(solutions[i][0], 
+                    (solutions[i][2], len(solutions)-solutions[i][2] -1), hash(s[1])) 
+                        for i in range(min(len(solutions), 40))]
         print 'visited', len(visited), visited   
 
         if len(solutions) >= 1:
