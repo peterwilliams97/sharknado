@@ -621,7 +621,7 @@ def repopulate(G, visited, X0, Cso2, target_score, visited2):
                 X = populate2(G, X, Cso2)
                 X = normalize(X)
                 hX = hash(X)
-                if hX not in visited and if hX not in visited2: # !@#$
+                if hX not in visited and hX not in visited2: # !@#$
                     break
                 visited.add(hX)    
             if hX not in visited:
@@ -728,7 +728,7 @@ def solve(n_nodes, n_edges, edges):
         #X = do_kempe(G, X)
         
         # Replenish candidate_solutions
-        target_score = candidate_solutions[0][0]
+        target_score = candidate_solutions[0][0] if candidate_solutions else 0
         for ii in range(1000):
             while True: 
                 X = repopulate(G, visited_starting, X, Cso, target_score, visited_minimum)  
