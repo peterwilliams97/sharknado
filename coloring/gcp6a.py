@@ -47,8 +47,10 @@ from __future__ import division
 from itertools import count
 from collections import defaultdict
 import pprint
+import re, os, time, shutil
 
-VERSION = 9
+
+VERSION = 10
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -59,6 +61,20 @@ def pp(s):
 def xx(lst):
     return [sorted(x) for x in lst]
     
+RE_PATH = re.compile('gc_(\d+)_(\d+)')
+RESULTS_DIR = 'results'
+ 
+def make_log_name(path):    
+    m = RE_PATH.search(path)
+    assert m, path
+    try:
+        os.mkdir(RESULTS_DIR)
+    except:
+        pass
+    name = 'gc_%d_%d' % (int(m.group(1)), int(m.group(2)))
+    log_name = os.path.join(RESULTS_DIR, name)
+    print 'log_name:', log_name
+    return log_name
 
 def maximal_cliques(G, n0):
     """Return maximal clique in graph G containing node n0"""
@@ -424,12 +440,13 @@ def bc_objective(n_colors, n_cc, n_bc):
     return sum((2 * n_cc[c] * n_bc[c] - n_cc[c] ** 2) for c in range(n_colors))    
     
     
-def add_solution(solutions, G, X):
+def add_solution(solutions, G, X, count):
     validate(G, X)
     n_colors = len(set(X))
-    solutions.insert((n_colors, normalize(X), len(solutions)))
-    print '$$$ best solutions', [v for v,_,_ in solutions]
-    return v    
+    nX = normalize(X) 
+    solutions.insert((n_colors, nX, count, hash(nX)))
+    # print '$$$ best solutions', [v for v,_,_ in solutions]
+    
     
 DEQU_LEN = 1000 
   
@@ -492,6 +509,7 @@ def do_search(G, visited, X, verbose=False):
         c = len(set(X))
         previous_best_c = best_cX_list[0][0] if best_cX_list else None 
         best_cX_list.insert((c, X))
+        visited.add(hash(normalize(X)))
         if verbose and not previous_best_c or c < previous_best_c:
             print 'best_X: c=%d,X=%s' % (c, X)
             
@@ -514,7 +532,7 @@ def do_search(G, visited, X, verbose=False):
         nX = normalize(X)
         hX = hash(nX)
         if hX in visited:
-            print '        tested'
+            #print '        tested'
             stack.append(L)
         continue
               
@@ -557,18 +575,19 @@ def do_search(G, visited, X, verbose=False):
         stack.append(L)
         stack.append(L1)
     
-    print 'best_cX_list', [c for c,_ in best_cX_list]
+    if verbose:
+        print 'best_cX_list', [c for c,_ in best_cX_list]
    
     return best_cX_list[0][1]                    
 
 def repopulate(G, visited, X0, Cso2):  
     #print 'repopulate ------------------------'
-    X = list(X0)
+    #X = list(X0)
     color_counts = defaultdict(int)
-    for c in X:
+    for c in X0:
         color_counts[c] += 1
-    assert sum(color_counts.values()) == len(X)    
-    assert len(color_counts) == len(set(X))
+    assert sum(color_counts.values()) == len(X0)    
+    assert len(color_counts) == len(set(X0))
     #colors = color_counts.keys()
     n_colors = len(color_counts)
     # excluded = set([c for c, k in color_counts.items() if k <= n_colors/2])
@@ -583,6 +602,7 @@ def repopulate(G, visited, X0, Cso2):
     hX0 = hash(X0)
     for excluded in excluded1, excluded2:
         for _ in range(40):
+            X = list(X0)
             for i in range(len(X)):
                 if color_counts[X[i]] in excluded or random.randrange(1, 3) == 1:
                     X[i] = -1
@@ -627,7 +647,9 @@ def solve(n_nodes, n_edges, edges):
     n_max = len(G)
     print 'n_min=%d' % (n_min)
     
-    MAX_SOLUTIONS = 10000
+    MAX_SOLUTIONS = 10 * 1000
+    MAX_VISITED = 1000 * 1000 
+    assert MAX_VISITED >= 3 * MAX_SOLUTIONS
     
     solutions = SortedDeque([], MAX_SOLUTIONS)
     visited = set([])
@@ -639,21 +661,42 @@ def solve(n_nodes, n_edges, edges):
     def print_best():
         max_min = 0
         min_k = solutions[0][0]
-        for i, (k, _, _) in enumerate(solutions):
-            if k > min_k:
+        for i, soln in enumerate(solutions):
+            if soln[0] > min_k:
                 break 
             max_min = i    
-        print '=' * 80
-        print 'best solutions: %d of %d' % (max_min + 1, len(solutions))
-       
-        for i in range(max_min + 1):
-            print i, solutions[i]
+        #print '=' * 80
+        #print log_name
+        shutil.copy(log_name, log_name + '.old')
+        with open(log_name , 'wt') as f:
+            f.write('VERSION=%d\n' % VERSION)
+            f.write('log_name=%s\n' % log_name)
+            f.write('n_min=%d,n_max=%d\n' % (n_min, n_max))
+            f.write('count=%d,visited=%d\n' % (count, len(visited)))
+            f.write('lowest number colors: %d : %s\n' % (len(solutions), 
+                [solutions[i][0] for i in range(min(len(solutions), 50))]))
+            f.write('best solutions: %d of %d\n' % (max_min + 1, len(solutions)))
+            for i in range(max_min + 1):
+                X = solutions[i][1]
+                optimal = len(set(X)) == n_min
+                f.write('%3d: %s: %s\n' % (i, optimal, solutions[i]))
                 
-    
-    while len(solutions) < MAX_SOLUTIONS:
+    n_colors = len(G)
+    last_report_time = time.time()
+    #while len(solutions) < MAX_SOLUTIONS:
+    for count in xrange(10**9):    
         
-        if len(solutions) % 1000 == 2:
+        if len(visited) >= MAX_VISITED: # 1000 * 1000:
+            v1 = len(visited)
+            visited = set(list(visited)[(len(visited)*2)//3:])
+            v2 = len(visited)
+            visited = visited | set(s[3] for s in solutions)
+            print 'reseting visited', v1, v2, len(visited)
+            
+        #if len(solutions) % 1000 == 2:
+        if time.time() > last_report_time + 6:
             print_best()
+            last_report_time = time.time()
         
         #X = do_kempe(G, X)
         X = normalize(X)
@@ -663,9 +706,13 @@ def solve(n_nodes, n_edges, edges):
         if not optimal:
             X = do_search(G, visited, X)
             X = normalize(X)
-            optimal = len(set(X)) == n_min
-            print 'i=%d,optimal=%s' % (len(solutions), optimal)
-            add_solution(solutions, G, X)
+            n_col = len(set(X))
+            optimal = n_col == n_min
+            #print 'i=%d,optimal=%s' % (len(solutions), optimal)
+            add_solution(solutions, G, X, count)
+            if n_col < n_colors:
+                print 'n_colors %d => %d, count=%d' % (n_colors, n_col, count)
+                n_colors = n_col
         if optimal:
             break
        
@@ -682,7 +729,7 @@ def solve(n_nodes, n_edges, edges):
             max_all = len(solutions) - 1
             max_min = 0
             min_k = solutions[0][0]
-            for i, (k, _, _) in enumerate(solutions):
+            for i, (k, _, _, _) in enumerate(solutions):
                 if k > min_k:
                     break
                 max_min = i
@@ -694,13 +741,13 @@ def solve(n_nodes, n_edges, edges):
         
         X = repopulate(G, visited, X, Cso)  
         hX = hash(X)
-        print 'hX', hX
+        #print 'hX', hX
         if hX in visited:
             break
             
         
     
-    print 'Done'
+    print '*^*Done'
     print_best()
         
     exit()    
@@ -789,6 +836,8 @@ path_list = sorted(glob.glob(mask))
 for path in path_list:
     #print '-' * 80
     print path 
+    log_name = make_log_name(path)
+ 
     results_f.write('%s' % path)
     results_f.flush()
     with open(path, 'rt') as f:
