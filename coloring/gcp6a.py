@@ -667,7 +667,8 @@ def solve(n_nodes, n_edges, edges):
             max_min = i    
         #print '=' * 80
         #print log_name
-        shutil.copy(log_name, log_name + '.old')
+        if os.path.exists(log_name):
+            shutil.copy(log_name, log_name + '.old')
         with open(log_name , 'wt') as f:
             f.write('VERSION=%d\n' % VERSION)
             f.write('log_name=%s\n' % log_name)
@@ -711,7 +712,7 @@ def solve(n_nodes, n_edges, edges):
             #print 'i=%d,optimal=%s' % (len(solutions), optimal)
             add_solution(solutions, G, X, count)
             if n_col < n_colors:
-                print 'n_colors %d => %d, count=%d' % (n_colors, n_col, count)
+                print 'n_colors %d => %d, count=%d, visited=%d' % (n_colors, n_col, count, len(visited))
                 n_colors = n_col
         if optimal:
             break
