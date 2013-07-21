@@ -554,18 +554,24 @@ def do_search(G, visited, X, verbose=False):
         # Changing from a lass color is usually better
         order.sort(key=lambda n: n_cc[X[n]])
         moves_1 = []
+        number_tested = 0
         for n in order:
             for c in colors:
                 if c == X[n]: continue
                        
                 diff, n_bc_c0, n_bc_c = op1(G, X, n, c, n_cc, n_bc)
                 if diff >= 0: # !@#$
-                    X1 = X[:]
-                    visited.add(hash(normalize(X1)))
+                    X1 = list(X)
+                    X1[n] = c
+                    #visited.add(hash(normalize(X1)))
+                    number_tested += 1
+                    visited.add(hash(tuple(X1)))
                     continue
                 moves_1.append((n, c, diff, n_bc_c0, n_bc_c))
              
-        if verbose:   print '    --- moves_1', len(moves_1), [x[0] for x in moves_1]        
+        if verbose:
+            print '*** number_tested:', number_tested, len(visited)
+            print '    --- moves_1', len(moves_1), [x[0] for x in moves_1]        
         if not moves_1:
             # Local minimum
             add_best(nX)
@@ -670,7 +676,7 @@ def solve(n_nodes, n_edges, edges):
     print 'n_min=%d,n_max=%d' % (n_min, n_max)
     
     MAX_SOLUTIONS = 10 * 1000
-    MAX_VISITED = 1000 * 1000 
+    MAX_VISITED = 30 * 1000 
     assert MAX_VISITED >= 3 * MAX_SOLUTIONS
     
     candidate_solutions = SortedDeque([], MAX_SOLUTIONS)
@@ -717,7 +723,7 @@ def solve(n_nodes, n_edges, edges):
                 v1 = len(visited)
                 visited = set(list(visited)[(len(visited)*2)//3:])
                 v2 = len(visited)
-                visited = visited | set(s[-2] for s in solutions)
+                visited = visited | set(s[-2] for s in optimized_solutions)
                 print 'reseting visited', v1, v2, len(visited)
             
         #if len(solutions) % 1000 == 2:
