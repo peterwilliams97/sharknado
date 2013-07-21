@@ -50,7 +50,7 @@ import pprint
 import re, os, time, shutil
 
 
-VERSION = 14
+VERSION = 15
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -723,10 +723,10 @@ def solve(n_nodes, n_edges, edges):
         #X = do_kempe(G, X)
         
         # Replenish candidate_solutions
-        
+        X0 = X[:]
         for ii in range(1000):
             while True: 
-                X = repopulate(G, visited_starting, X, Cso)  
+                X = repopulate(G, visited_starting, X0, Cso)  
                 hX = hash(X)
                 if hX not in visited_minimum and hX not in visited_tested:
                     break

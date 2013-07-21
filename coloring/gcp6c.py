@@ -50,7 +50,7 @@ import pprint
 import re, os, time, shutil
 
 
-VERSION = 14
+VERSION = 16
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -559,7 +559,10 @@ def do_search(G, visited, X, verbose=False):
                 if c == X[n]: continue
                        
                 diff, n_bc_c0, n_bc_c = op1(G, X, n, c, n_cc, n_bc)
-                if diff >= 0: continue
+                if diff >= 0: # !@#$
+                    X1 = X[:]
+                    visited.add(hash(normalize(X1)))
+                    continue
                 moves_1.append((n, c, diff, n_bc_c0, n_bc_c))
              
         if verbose:   print '    --- moves_1', len(moves_1), [x[0] for x in moves_1]        
@@ -586,7 +589,7 @@ def do_search(G, visited, X, verbose=False):
    
     return best_cX_list[0][1]                    
 
-def repopulate(G, visited, X0, Cso2):  
+def repopulate(G, visited, X0, Cso2, target_score, visited2):  
     #print 'repopulate ------------------------'
     #X = list(X0)
     color_counts = defaultdict(int)
@@ -618,7 +621,7 @@ def repopulate(G, visited, X0, Cso2):
                 X = populate2(G, X, Cso2)
                 X = normalize(X)
                 hX = hash(X)
-                if hX not in visited:
+                if hX not in visited and if hX not in visited2: # !@#$
                     break
                 visited.add(hX)    
             if hX not in visited:
@@ -627,6 +630,8 @@ def repopulate(G, visited, X0, Cso2):
         if score < best_score:
             best_score = score
             best_X = X
+            if score <= target_score:
+                break
     #print 'X0', hash(X0), X0
     #print 'X', hash(X), X
     #print '---- repopulated'
@@ -723,10 +728,10 @@ def solve(n_nodes, n_edges, edges):
         #X = do_kempe(G, X)
         
         # Replenish candidate_solutions
-        
+        target_score = candidate_solutions[0][0]
         for ii in range(1000):
             while True: 
-                X = repopulate(G, visited_starting, X, Cso)  
+                X = repopulate(G, visited_starting, X, Cso, target_score, visited_minimum)  
                 hX = hash(X)
                 if hX not in visited_minimum and hX not in visited_tested:
                     break
@@ -734,7 +739,7 @@ def solve(n_nodes, n_edges, edges):
                 
             add_solution(candidate_solutions, G, X, count)        
             nn = len(set(X)) 
-            if len(candidate_solutions) >= 10 and (nn <= candidate_solutions[0][0] or ii >= 10):
+            if len(candidate_solutions) >= 10 and (nn <= target_score or ii >= 10):
                 break  
             #print ('~', len(set(X))),
             print (len(candidate_solutions), nn) ,

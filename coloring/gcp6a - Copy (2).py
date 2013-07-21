@@ -50,7 +50,7 @@ import pprint
 import re, os, time, shutil
 
 
-VERSION = 14
+VERSION = 12
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -668,17 +668,16 @@ def solve(n_nodes, n_edges, edges):
     MAX_VISITED = 1000 * 1000 
     assert MAX_VISITED >= 3 * MAX_SOLUTIONS
     
-    candidate_solutions = SortedDeque([], MAX_SOLUTIONS)
-    optimized_solutions = SortedDeque([], MAX_SOLUTIONS)
-    visited_starting, visited_minimum, visited_tested = set([]), set([]), set([])
+    solutions = SortedDeque([], MAX_SOLUTIONS)
+    visited_starting, visited_minimum = set([]), set([])
             
     X = [-1] * len(G)
     X = populate1(G, X, Cso)    
          
     def print_best():
         max_min = 0
-        min_k = optimized_solutions[0][0]
-        for i, soln in enumerate(optimized_solutions):
+        min_k = solutions[0][0]
+        for i, soln in enumerate(solutions):
             if soln[0] > min_k:
                 break 
             max_min = i    
@@ -690,24 +689,22 @@ def solve(n_nodes, n_edges, edges):
             f.write('VERSION=%d\n' % VERSION)
             f.write('log_name=%s\n' % log_name)
             f.write('n_min=%d,n_max=%d\n' % (n_min, n_max))
-            f.write('candidate_solutions=%d,optimized_solutions=%d\n' % (len(candidate_solutions), 
-                len(optimized_solutions)))
-            f.write('count=%d,visited_starting=%d,visited_tested=%d,visited_minimum=%d\n' % (count, 
-                    len(visited_starting), len(visited_tested), len(visited_minimum)))
-            f.write('lowest number colors: %d : %s\n' % (len(optimized_solutions), 
-                [optimized_solutions[i][0:3] for i in range(min(len(optimized_solutions), 50))]))
-            f.write('best solutions: %d of %d\n' % (max_min + 1, len(optimized_solutions)))
+            f.write('count=%d,visited_starting=%d,visited_minimum=%d\n' % (count, 
+                    len(visited_starting), len(visited_minimum)))
+            f.write('lowest number colors: %d : %s\n' % (len(solutions), 
+                [solutions[i][0:3] for i in range(min(len(solutions), 50))]))
+            f.write('best solutions: %d of %d\n' % (max_min + 1, len(solutions)))
             for i in range(max_min + 1):
-                X = optimized_solutions[i][-1]
+                X = solutions[i][-1]
                 optimal = len(set(X)) == n_min
-                f.write('%3d: %s: %s\n' % (i, optimal, optimized_solutions[i]))
+                f.write('%3d: %s: %s\n' % (i, optimal, solutions[i]))
                 
     n_colors = len(G)
     last_report_time = time.time()
     #while len(solutions) < MAX_SOLUTIONS:
     for count in xrange(10**9):    
        
-        for visited in visited_starting, visited_minimum, visited_tested :
+        for visited in visited_starting, visited_minimum:
             if len(visited) >= MAX_VISITED: # 1000 * 1000:
                 v1 = len(visited)
                 visited = set(list(visited)[(len(visited)*2)//3:])
@@ -722,59 +719,14 @@ def solve(n_nodes, n_edges, edges):
         
         #X = do_kempe(G, X)
         
-        # Replenish candidate_solutions
-        
-        for ii in range(1000):
-            while True: 
-                X = repopulate(G, visited_starting, X, Cso)  
-                hX = hash(X)
-                if hX not in visited_minimum and hX not in visited_tested:
-                    break
-                print 'repopulating'  
-                
-            add_solution(candidate_solutions, G, X, count)        
-            nn = len(set(X)) 
-            if len(candidate_solutions) >= 10 and (nn <= candidate_solutions[0][0] or ii >= 10):
-                break  
-            #print ('~', len(set(X))),
-            print (len(candidate_solutions), nn) ,
-        print '.',   
-        
-        # Take best candidate solution
-        while candidate_solutions:
-            soln = candidate_solutions.popleft()
-            # solution = (n_colors, score, count, hash(nX), nX)
-            if soln[3] not in visited_tested and soln[3] not in visited_minimum:
-                X = soln[-1]
-                break
-        visited_tested.add(soln[3])  
-        print soln[0]
-            
-        optimal = len(set(set(X))) == n_min
-        if not optimal:
-            X = do_search(G, visited_minimum, X)
-            n_col = len(set(X))
-            optimal = n_col == n_min
-            #print 'i=%d,optimal=%s' % (len(solutions), optimal)
-            add_solution(optimized_solutions, G, X, count)
-            add_solution(candidate_solutions, G, X, count)
-            if n_col < n_colors:
-                print 'n_colors %d => %d, count=%d, visited=%s, solutions=%s' % (n_colors, 
-                    n_col, count, 
-                    (len(visited_starting), len(visited_tested), len(visited_minimum)),
-                    (len(candidate_solutions), len(optimized_solutions)))
-                n_colors = n_col
-        if optimal:
-            break
-            
-        if len(optimized_solutions) >= 1:
+        if len(solutions) >= 1:
             if random.randrange(0, 3) != 0:
-                X = optimized_solutions[0][-1]
+                X = solutions[0][-1]
             else:    
-                max_all = len(optimized_solutions) - 1
+                max_all = len(solutions) - 1
                 max_min = 0
-                min_k = optimized_solutions[0][0]
-                for i, soln in enumerate(optimized_solutions):
+                min_k = solutions[0][0]
+                for i, soln in enumerate(solutions):
                     if soln[0] > min_k:
                         break
                     max_min = i
@@ -782,10 +734,29 @@ def solve(n_nodes, n_edges, edges):
                     max_i = max_min
                 else:
                     max_i = max_all
-                X = optimized_solutions[random.randrange(0, max_i+1)][-1]    
-            
-         
-            
+                X = solutions[random.randrange(0, max_i+1)][-1]
+        
+        while True: 
+            X = repopulate(G, visited_starting, X, Cso)  
+            hX = hash(X)
+            if hX not in visited_minimum:
+                break
+            print 'repopulating'    
+              
+        #add_solution(solutions, G, X)
+        optimal = len(set(set(X))) == n_min
+        if not optimal:
+            X = do_search(G, visited_minimum, X)
+            n_col = len(set(X))
+            optimal = n_col == n_min
+            #print 'i=%d,optimal=%s' % (len(solutions), optimal)
+            add_solution(solutions, G, X, count)
+            if n_col < n_colors:
+                print 'n_colors %d => %d, count=%d, visited=%s' % (n_colors, n_col, count, 
+                    (len(visited_starting), len(visited_minimum)))
+                n_colors = n_col
+        if optimal:
+            break
        
         #visited = [hash(s[1]) for s in solutions]
        

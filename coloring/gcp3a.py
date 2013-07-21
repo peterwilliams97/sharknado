@@ -47,10 +47,8 @@ from __future__ import division
 from itertools import count
 from collections import defaultdict
 import pprint
-import re, os, time, shutil
 
-
-VERSION = 14
+VERSION = 1
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -61,20 +59,6 @@ def pp(s):
 def xx(lst):
     return [sorted(x) for x in lst]
     
-RE_PATH = re.compile('gc_(\d+)_(\d+)')
-RESULTS_DIR = 'results'
- 
-def make_log_name(path):    
-    m = RE_PATH.search(path)
-    assert m, path
-    try:
-        os.mkdir(RESULTS_DIR)
-    except:
-        pass
-    name = 'gc_%d_%d.%02d' % (int(m.group(1)), int(m.group(2)), VERSION)
-    log_name = os.path.join(RESULTS_DIR, name)
-    print 'log_name:', log_name
-    return log_name
 
 def maximal_cliques(G, n0):
     """Return maximal clique in graph G containing node n0"""
@@ -185,14 +169,12 @@ def normalize(X):
     """
     colors = sorted(set(X), key=lambda c: (-X.count(c), c))
     
-    #print 'normalize', len(X), len(set(X))
     color_index = [-1] * (max(X) + 1)
     for i in set(X):
         color_index[i] = colors.index(i)
     #print colors, sorted(set(X)), color_index
-    X2 = tuple([color_index[c] for c in X])  
-    assert len(set(X2)) == len(set(X))
-    return X2
+    return tuple([color_index[c] for c in X])  
+    
     
 def validate(G, X):    
     for n in G:
@@ -210,7 +192,7 @@ def union(list_of_sets):
     return unn
 
  
-def populate1(G, X, Cso): 
+def populate(G, X, Cso): 
     # Color the graph somewhat like http://carajcy.blogspot.com.au/2013/01/dsatur.html
     # Start with largest clique
     # Do a real DSTATUR !@#$
@@ -226,38 +208,9 @@ def populate1(G, X, Cso):
                 if color not in neighbor_colors:
                     X[n] = color
                     break
-    return tuple(X)                
+    return X                
     
 
-def populate2(G, X, Cso): 
-    # Color the graph like http://carajcy.blogspot.com.au/2013/01/dsatur.html
-    # Do a real DSTATUR !@#$
-       
-    nodes = G.keys()
-    nodes.sort(key=lambda n: -len(G[n]))
-  
-    for n in nodes:
-        if X[n] != -1:
-            continue
-        neighbor_colors = set(X[i] for i in G[n])    
-        for color in count():    
-            if color not in neighbor_colors:
-                X[n] = color
-                break
-    return tuple(X)     
-
-flipflop = False
-def populate(G, X, Cso):
-    global flipflop
-    X1 = populate1(G, X, Cso)
-    X2 = populate2(G, X, Cso)
-    c1 = len(set(X1))
-    c2 = len(set(X2))
-    if c1 == c2:
-        flipflop = not flipflop
-        return X1 if flipflop else X2
-    return X1 if c1 < c2 else X2
-    
 def get_Cso(G):    
     order = range(len(G))
     order.sort(key=lambda n: -len(G[n]))
@@ -277,9 +230,51 @@ def get_Cso(G):
     
  
 def find_min_colors(G, Cso):
+
+    if False:
+        #print (dict(G))
+        order = range(len(G))
+        order.sort(key=lambda n: -len(G[n]))
+        # Cliques as sets
+        
+        print '@@1'
+        Cs = all_cliques(G)
+        print '@@2'
+        #assert len(Cs) == len(G)
+        assert len(union(Cs)) == len(G)
+        
+        # Cliques as ordered lists
+        Co = [sorted(c, key=lambda n: -len(G[n])) for c in Cs]
+        print '>>', Co
+        Cso = zip(Cs, Co)
    
+        
+    
+    # Lower and upper bounds on number of colors    
+    n_min = len(Cso[0][0])
+    n_max = len(G)
+    
     X = [-1] * len(G)
-    X = populate(G, X, Cso)    
+    
+    if False:
+        # Color the graph somewhat like http://carajcy.blogspot.com.au/2013/01/dsatur.html
+        # Start with largest clique
+        cs, co = Cso[0]
+        for i, n in enumerate(co):
+            X[n] = i
+        
+        # Color the other cliques
+        for cs, co in Cso[1:]:
+            for n in co:
+                if X[n] != -1:
+                    continue
+                neighbor_colors = set(X[i] for i in G[n])    
+                for color in count():    
+                    if color not in neighbor_colors:
+                        X[n] = color
+                        break
+    else:
+        X = populate(G, X, Cso)    
                     
     n_colors = len(set(X))
     print n_min, n_colors, n_max
@@ -299,13 +294,31 @@ def find_min_colors(G, Cso):
         print '%d: %d' % (c, X.count(c))
         
     print '-' * 40
+    
+    if False:
+    
+        # Swap colors to reduce total number of colors
+        while n_colors > n_min:
+            last_color = n_colors - 1
+            # nodes and cliques containing the color to be swapped
+            nodes = [i for i, x in enumerate(X) if x == last_color]
+            cliques = [cso for cso in Cso if any(n in nodes for n in cso[0])]
+            
+            # Might be easir to just sort by color count in reverse
+            collision_counts = []
+            for x in range(last_color):
+                X2 = [x if y == last_color else y for y in X]
+                collision_counts.append((x, count_collisions(G, X2)))
+            collision_counts.sort(key=lambda x: -x[1])
+            
+            for cs, co in cliques:
+                pass       
         
     return X, n_min                
  
-def do_kempe(G, X0):
+def do_kempe(G, X0, n_colors):
     X = X0[:]
     
-    n_colors = len(set(X0))
     color_classes = [set([n for n, x in enumerate(X) if x == c]) for c in range(n_colors)]
     assert sum(len(cls) for cls in color_classes) == len(X)
     
@@ -327,7 +340,7 @@ def do_kempe(G, X0):
         return set(X[n1] for n1 in G[n])
     
     print '$' * 40, 'kempe'
-    #print [len(cls) for cls in color_classes], objective()
+    print [len(cls) for cls in color_classes], objective()
      
     
     '''
@@ -359,17 +372,40 @@ def do_kempe(G, X0):
             before = len(color_classes[i1])**2 + len(color_classes[i2])**2
             after = len(cc1)**2 + len(cc2)**2
             if after > before:
+                if False:
+                    print 
+                    for n in color_classes[i1]:
+                        if i2 in G[n]:
+                            print ' -- ', n, G[n]
+                           
+                    for n in color_classes[i2]:
+                        if i1 in G[n]:
+                            print ' ++ ', n, G[n]    
+                    print        
+                    print i1, sorted(set(sum((G[n] for n in color_classes[i1]), [])))
+                    print i2, sorted(set(sum((G[n] for n in color_classes[i2]), [])))
+                    print
+                    print i1, len(color_classes[i1]), sorted(color_classes[i1])
+                    print i2, len(color_classes[i2]), sorted(color_classes[i2])
+                    print
+                    print sorted(links1) 
+                    print sorted(links2)
+                    print
+                    print sorted(color_classes[i1] | color_classes[i2])
+                    print sorted(cc1)
+                    print sorted(cc2)
+                    print sorted(cc1 | cc2)
                 if len(cc2) > len(cc1):
                     color_classes[i1] = cc2
                     color_classes[i2] = cc1
                 else:    
                     color_classes[i1] = cc1
                     color_classes[i2] = cc2
-                print objective(), (i1, i2), (before, after), after > before # , [len(cls) for cls in color_classes]
+                print objective(), (i1, i2), (before, after), after > before, [len(cls) for cls in color_classes]
                 X = makeX()
                 validate(G, X)    
 
-    #print '$' * 40
+    print '$' * 40
     #X = makeX()
     
     return normalize(X)
@@ -435,71 +471,25 @@ def perturb_by_class(G, X, Cso, n_colors):
             
     return perturbations  
 
-    
-def bc_objective(n_colors, n_cc, n_bc):
-    return sum((2 * n_cc[c] * n_bc[c] - n_cc[c] ** 2) for c in range(n_colors))    
-    
-    
-def get_score(X):    
-    n_colors = len(set(X))
-    counts = [0] * n_colors
-    for c in X:
-        assert 0 <= c < n_colors, c
-        counts[c] += 1 
-    return -sum(c**2 for c in counts)
-    
-def add_solution(solutions, G, X, count):
-    """ 
-        solution = (n_colors, score, count hash(nX), nX)
-    """
-    validate(G, X)
-    n_colors = len(set(X))
-
-    nX = normalize(X) 
-    solutions.insert((n_colors, get_score(X), count, hash(nX), nX))
-    # print '$$$ best solutions', [v for v,_,_ in solutions]
-    
-    
-  
+ 
+ 
 from utils import SortedDeque
-#from numba import autojit, jit, double
-
-#@autojit
-def op1(G, X, n, c, n_cc, n_bc):
-    """Change color of G[n] to c and compute changes"""
-    c0 = X[n]
-    #print 'op1', n, c0, c, n_cc, n_bc
-    #assert 0 <= c < len(n_cc), c
-    #assert 0 <= c < len(n_bc), c
-    #assert 0 <= c0 < len(n_cc), c0
-    #assert 0 <= c0 < len(n_bc), c0 
-    n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = n_cc[c0], n_cc[c], n_bc[c0], n_bc[c]
-    before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
-    n_cc_c0 -= 1
-    n_cc_c += 1
-    n_bc_c0 -= sum(int(X[n1] == c0) for n1 in G[n])
-    n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
-    after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
-    return after - before, n_bc_c0, n_bc_c
     
-def apply1(v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c):
-    c0 = X[n]
-    X1 = list(X)
-    n_cc1 = n_cc[:]
-    n_bc1 = n_bc[:]
-    X1[n] = c
-    n_cc1[c0] -= 1
-    n_cc1[c] += 1
-    n_bc[c0] -= n_bc_c0
-    n_bc[c] -= n_bc_c
-    return v + diff, X1, n_cc1, n_bc1
-    
-def do_search(G, visited, X, verbose=False):
-    """Local search around X using sum(2*|B[i]||C[i]| - |C[i]|^2) objective
+def do_search(G, X, n_colors, Cso):
+    """Local search around X using sum(|B[i]||C[i]| - |C[i]|^2) objective
     """
-    #verbose = True
     
-    n_colors = len(set(X))
+    for n in G:
+        for n1 in G[n]:
+            assert n in G[n1], '%d %d' % (n, n1)
+
+    def makeX():  
+        X1 = [-1] * len(X)
+        for c, cls in enumerate(color_classes):
+            for x in cls:
+                X1[x] = c
+        return X1 
+    
     # color_classes[c] = nodes with color c
     color_classes = [set([n for n, x in enumerate(X) if x == c]) for c in range(n_colors)]
     assert sum(len(cls) for cls in color_classes) == len(X)
@@ -510,134 +500,114 @@ def do_search(G, visited, X, verbose=False):
     # We only need counts for our objective functions
     n_cc = [len(color_classes[c]) for c in range(n_colors)]
     n_bc = [len(broken_classes[c]) for c in range(n_colors)]
-       
-    v = bc_objective(n_colors, n_cc, n_bc) 
+            
+    def objective(n_cc, n_bc):
+        return sum((2 * n_cc[c] * n_bc[c] - n_cc[c] ** 2) for c in range(n_colors))
     
-    stack = [[(v, X, n_cc, n_bc)]]
-    best_cX_list = SortedDeque([], 1000)
-    
-    def add_best(X):
-        c = len(set(X))
-        previous_best_c = best_cX_list[0][0] if best_cX_list else None 
-        best_cX_list.insert((c, X))
-        visited.add(hash(normalize(X)))
-        if verbose and not previous_best_c or c < previous_best_c:
-            print 'best_X: c=%d,X=%s' % (c, X)
-
-    assert hash(normalize(X)) not in visited
+    v = objective(n_cc, n_bc)  
+    LEN = 10000
+    solutions = SortedDeque([(v, normalize(X), n_cc, n_bc)], LEN)
+    tested = set()
     counter = count()
-    cnt = -1
-    #while stack and (cnt < 100 or len(best_cX_list) < 10):
-    while stack and (cnt < 100 or not len(best_cX_list)):
-        if verbose:   print '**stack %4d:' % cnt, len(stack), [len(x) for x in stack]    
-        cnt = next(counter)
-        L = stack.pop()
-        if not L:
-            if verbose: print '*done with', len(stack) + 1
+    best_v = v
+    best_X = tuple(X)
+    best_n_col = len([x for x in n_cc if x > 0])
+    
+    normX = normalize(X)
+    print 'best_X', v, best_n_col, color_counts(normX, n_colors), normX
+    
+    needs_perturbation = False
+    
+    while solutions: 
+        v, X, n_cc, n_bc = solutions.popleft()
+        check_counts(G, n_colors, X, n_cc, n_bc)
+        #print '++++', v, ([solutions[i][0] for i in range(min(10,len(solutions)))], 
+        #                  [solutions[-i-1][0] for i in range(min(10,len(solutions)))] )  
+<<<<<<< HEAD
+        if hash(normalize(X)) in tested:
+=======
+        hX = hash(normalize(X))
+        if hX in tested:
+>>>>>>> 8ad8beba7ddfd8f112ca4bfe74bd3256ee1847df
             continue
-         
-        v, X, n_cc, n_bc = L.pop()     # L is sorted worst to best
+        tested.add(hX)    
         
-        nX = normalize(X)
-        hX = hash(nX)
-        if hX in visited:  # Previously found a local minimum here?
-            if verbose: print '        tested'
-            stack.append(L)
-            continue
-        visited.add(hX)    
-           
-        # Changing to a more numerous color is usually better
-        colors = sorted([i for i, c in enumerate(n_cc) if c], key=lambda x: -x)
-        order = list(G.keys())
-        #print '*', len(order), len(colors), n_colors
-        assert len(colors) == len(set(X))
-        # Changing from a lass color is usually better
-        order.sort(key=lambda n: n_cc[X[n]])
-        moves_1 = []
-        for n in order:
-            for c in colors:
-                if c == X[n]: continue
-                       
-                diff, n_bc_c0, n_bc_c = op1(G, X, n, c, n_cc, n_bc)
-                if diff >= 0: continue
-                moves_1.append((n, c, diff, n_bc_c0, n_bc_c))
-             
-        if verbose:   print '    --- moves_1', len(moves_1), [x[0] for x in moves_1]        
-        if not moves_1:
-            # Local minimum
-            add_best(nX)
-            if verbose:   print '    **** mininum', len(set(X)), best_cX_list[0][0]  
+        #assert v == objective(n_cc, n_bc)
+        n_col = len([x for x in n_cc if x > 0])
+        print '*', (v, n_col), len(solutions), len(tested), (best_v, best_n_col) #, X, n_cc, n_bc
+        if False:
+            if len(tested) % 100 == 1:
+                print X
+                print n_cc
+                print n_bc
+                validate(G, X)
             
-            continue
+        if n_col < best_n_col or (n_col == best_n_col and v < best_v):
+            if n_col < best_n_col:    
+                normX = normalize(X)
+                print 'best_X', v, n_col, color_counts(normX, n_colors), normX
+                n_col_actual = validate(G, X)
+                assert n_col == n_col_actual, 'n_col=%d n_col_actual=%d' % (n_col, n_col_actual)
+            best_v = v
+            best_X = X[:]
+            best_n_col = n_col
+            needs_perturbation = True
+
+        if len(tested) % 10 == 1:
+            needs_perturbation = True
             
-        biggest_diff = min(diff for _,_,diff,_,_ in moves_1)        
-        moves_1 = [x for x in moves_1 if x[2] <= biggest_diff]
-        if verbose:
-            print '    +++ moves_1', len(moves_1), [x[2] for x in moves_1]
-        assert moves_1
-        L1 = [apply1(v, X, n_cc, n_bc, diff, n, c, n_bc_c0, n_bc_c) 
-                    for n, c, diff, n_bc_c0, n_bc_c in moves_1]
-        L1.sort()            
-        stack.append(L)
-        stack.append(L1)
-    
-    if verbose or True:
-        print 'best_cX_list', cnt, [c for c,_ in best_cX_list]
-   
-    return best_cX_list[0][1]                    
+        if needs_perturbation: #  and all(x == 0 for x in n_bc):
+            needs_perturbation = False
+            print 'perturbations',
+            for X1 in perturb_by_class(G, X, Cso, n_colors):
+                if hash(normalize(X1)) in tested:
+                    continue
+                n_cc1 = color_counts(X1, n_colors)
+                n_bc1 = broken_counts(G, n_colors, X1)
+                check_counts(G, n_colors, X1, n_cc1, n_bc1)
+                v1 = objective(n_cc1, n_bc1)
+                print v1, 
+                solutions.insert((v1, X1, n_cc1, n_bc1))
+            print    
+        
+        for n in G:
+            c0 = X[n]
+            for c in range(n_colors):
+                # Looking for a new color
+                if c == c0:
+                    continue
+                #X2[n] = c
+                #d = delta(n, c, n_cc[c0], n_cc[c], n_bc[c0], n_bc[c])
+                c0 = X[n]
+                # Can't remove any c0 color nodes if none exist
+                if n_cc[c0] == 0:
+                    continue
+                n_cc_c0, n_cc_c, n_bc_c0, n_bc_c = n_cc[c0], n_cc[c], n_bc[c0], n_bc[c]
+                before = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
+                n_cc_c0 -= 1
+                n_cc_c += 1
+                n_bc_c0 -= sum(int(X[n1] == c0) for n1 in G[n])
+                n_bc_c  += sum(int(X[n1] == c)  for n1 in G[n])
+                after = 2 * n_cc_c0 * n_bc_c0 - n_cc_c0**2 + 2 * n_cc_c * n_bc_c - n_cc_c**2
+                #print '&', before, after
+                # !@#$ Apply a GA test here?
+                # if after < before:
+                #   temp = ?
+                #   delta = after - before
+                #   if v + after - before >= best_v or rand() < exp(-delta/temp):
+                if after < before: #and v + after - before >= best_v:
+                    X2, n_cc2, n_bc2 = list(X), n_cc[:], n_bc[:]
+                    X2[n] = c
+                    n_cc2[c0], n_cc2[c], n_bc2[c0], n_bc2[c] =  n_cc_c0, n_cc_c, n_bc_c0, n_bc_c
+                    check_counts(G, n_colors, X2, n_cc2, n_bc2)
+                    v2 = objective(n_cc2, n_bc2)
+                    #assert v2 == v + after - before
+                    if hash(normalize(X2)) in tested:
+                        continue
+                    solutions.insert((v + after - before, tuple(X2), n_cc2, n_bc2))
 
-def repopulate(G, visited, X0, Cso2):  
-    #print 'repopulate ------------------------'
-    #X = list(X0)
-    color_counts = defaultdict(int)
-    for c in X0:
-        color_counts[c] += 1
-    assert sum(color_counts.values()) == len(X0)    
-    assert len(color_counts) == len(set(X0))
-    #colors = color_counts.keys()
-    n_colors = len(color_counts)
-    # excluded = set([c for c, k in color_counts.items() if k <= n_colors/2])
-    max_color = max(color_counts.values())
-    
-    excluded1 = set([c for c, k in color_counts.items() if k <= 1]) 
-    excluded2 = set([c for c, k in color_counts.items() if k <= 2])     
-    #print '** excluded1', len(excluded1), (len(color_counts), len(X)), max(color_counts.values())
-    #print '** excluded2', len(excluded2),
-    #print [(c,color_counts[c]) for c in sorted(color_counts, key=lambda x: -color_counts[x])]
-      
-    hX0 = hash(X0)
-    visited.add(hX0)
-    best_score = 0
-    for count in range(1000):
-        for excluded in excluded1, excluded2:
-            for _ in range(40):
-                X = list(X0)
-                for i in range(len(X)):
-                    if color_counts[X[i]] in excluded or random.randrange(1, 3) == 1:
-                        X[i] = -1
-                X = populate2(G, X, Cso2)
-                X = normalize(X)
-                hX = hash(X)
-                if hX not in visited:
-                    break
-                visited.add(hX)    
-            if hX not in visited:
-                break    
-        score = get_score(X)
-        if score < best_score:
-            best_score = score
-            best_X = X
-    #print 'X0', hash(X0), X0
-    #print 'X', hash(X), X
-    #print '---- repopulated'
-    X = best_X
-    X = normalize(X)
-    hX = hash(X)
-    assert hX not in visited
-    visited.add(hX) 
-    return X    
-
-import random    
+    return best_X                    
+                    
  
 def solve(n_nodes, n_edges, edges):
     """
@@ -658,152 +628,24 @@ def solve(n_nodes, n_edges, edges):
         G[n] = frozenset(G[n])
         
     Cso = get_Cso(G)    
-        
-    # Lower and upper bounds on number of colors    
-    n_min = len(Cso[0][0])
-    n_max = len(G)
-    print 'n_min=%d,n_max=%d' % (n_min, n_max)
     
-    MAX_SOLUTIONS = 10 * 1000
-    MAX_VISITED = 1000 * 1000 
-    assert MAX_VISITED >= 3 * MAX_SOLUTIONS
+    X, n_min = find_min_colors(G, Cso) 
+    n_colors = len(set(X))
+    optimal = n_colors == n_min
+    print 'n_min=%d,n_colors=%d' % (n_min, n_colors)
     
-    candidate_solutions = SortedDeque([], MAX_SOLUTIONS)
-    optimized_solutions = SortedDeque([], MAX_SOLUTIONS)
-    visited_starting, visited_minimum, visited_tested = set([]), set([]), set([])
-            
-    X = [-1] * len(G)
-    X = populate1(G, X, Cso)    
-         
-    def print_best():
-        max_min = 0
-        min_k = optimized_solutions[0][0]
-        for i, soln in enumerate(optimized_solutions):
-            if soln[0] > min_k:
-                break 
-            max_min = i    
-        #print '=' * 80
-        #print log_name
-        if os.path.exists(log_name):
-            shutil.copy(log_name, log_name + '.old')
-        with open(log_name , 'wt') as f:
-            f.write('VERSION=%d\n' % VERSION)
-            f.write('log_name=%s\n' % log_name)
-            f.write('n_min=%d,n_max=%d\n' % (n_min, n_max))
-            f.write('candidate_solutions=%d,optimized_solutions=%d\n' % (len(candidate_solutions), 
-                len(optimized_solutions)))
-            f.write('count=%d,visited_starting=%d,visited_tested=%d,visited_minimum=%d\n' % (count, 
-                    len(visited_starting), len(visited_tested), len(visited_minimum)))
-            f.write('lowest number colors: %d : %s\n' % (len(optimized_solutions), 
-                [optimized_solutions[i][0:3] for i in range(min(len(optimized_solutions), 50))]))
-            f.write('best solutions: %d of %d\n' % (max_min + 1, len(optimized_solutions)))
-            for i in range(max_min + 1):
-                X = optimized_solutions[i][-1]
-                optimal = len(set(X)) == n_min
-                f.write('%3d: %s: %s\n' % (i, optimal, optimized_solutions[i]))
-                
-    n_colors = len(G)
-    last_report_time = time.time()
-    #while len(solutions) < MAX_SOLUTIONS:
-    for count in xrange(10**9):    
+    if not optimal:
+        X = do_kempe(G, X, n_colors)
+        X = normalize(X)
+        n_colors = len(set(X))
+        optimal = n_colors == n_min
        
-        for visited in visited_starting, visited_minimum, visited_tested :
-            if len(visited) >= MAX_VISITED: # 1000 * 1000:
-                v1 = len(visited)
-                visited = set(list(visited)[(len(visited)*2)//3:])
-                v2 = len(visited)
-                visited = visited | set(s[-2] for s in solutions)
-                print 'reseting visited', v1, v2, len(visited)
-            
-        #if len(solutions) % 1000 == 2:
-        if time.time() > last_report_time + 60:
-            print_best()
-            last_report_time = time.time()
-        
-        #X = do_kempe(G, X)
-        
-        # Replenish candidate_solutions
-        
-        for ii in range(1000):
-            while True: 
-                X = repopulate(G, visited_starting, X, Cso)  
-                hX = hash(X)
-                if hX not in visited_minimum and hX not in visited_tested:
-                    break
-                print 'repopulating'  
-                
-            add_solution(candidate_solutions, G, X, count)        
-            nn = len(set(X)) 
-            if len(candidate_solutions) >= 10 and (nn <= candidate_solutions[0][0] or ii >= 10):
-                break  
-            #print ('~', len(set(X))),
-            print (len(candidate_solutions), nn) ,
-        print '.',   
-        
-        # Take best candidate solution
-        while candidate_solutions:
-            soln = candidate_solutions.popleft()
-            # solution = (n_colors, score, count, hash(nX), nX)
-            if soln[3] not in visited_tested and soln[3] not in visited_minimum:
-                X = soln[-1]
-                break
-        visited_tested.add(soln[3])  
-        print soln[0]
-            
-        optimal = len(set(set(X))) == n_min
+    if True:    
         if not optimal:
-            X = do_search(G, visited_minimum, X)
-            n_col = len(set(X))
-            optimal = n_col == n_min
-            #print 'i=%d,optimal=%s' % (len(solutions), optimal)
-            add_solution(optimized_solutions, G, X, count)
-            add_solution(candidate_solutions, G, X, count)
-            if n_col < n_colors:
-                print 'n_colors %d => %d, count=%d, visited=%s, solutions=%s' % (n_colors, 
-                    n_col, count, 
-                    (len(visited_starting), len(visited_tested), len(visited_minimum)),
-                    (len(candidate_solutions), len(optimized_solutions)))
-                n_colors = n_col
-        if optimal:
-            break
-            
-        if len(optimized_solutions) >= 1:
-            if random.randrange(0, 3) != 0:
-                X = optimized_solutions[0][-1]
-            else:    
-                max_all = len(optimized_solutions) - 1
-                max_min = 0
-                min_k = optimized_solutions[0][0]
-                for i, soln in enumerate(optimized_solutions):
-                    if soln[0] > min_k:
-                        break
-                    max_min = i
-                if random.randrange(0, 3) != 0:
-                    max_i = max_min
-                else:
-                    max_i = max_all
-                X = optimized_solutions[random.randrange(0, max_i+1)][-1]    
-            
-         
-            
-       
-        #visited = [hash(s[1]) for s in solutions]
-       
-        if False:
-            print '------------'
-            print 'solutions', len(solutions), [(solutions[i][0], 
-                        (solutions[i][2], len(solutions)-solutions[i][2] -1), hash(s[1])) 
-                            for i in range(min(len(solutions), 40))]
-            print 'visited', len(visited), visited   
-
-        
-            
-        
-    
-    print '*^*Done'
-    print_best()
-        
-    exit()    
+            X = do_search(G, X, n_colors, Cso)
+            X = normalize(X)
+            n_colors = len(set(X))
+            optimal = n_colors == n_min
          
     for n in G:
         assert X[n] >= 0, '%d %s' % (n, G[n])
@@ -813,9 +655,9 @@ def solve(n_nodes, n_edges, edges):
     for n in G:
         print n, X[n], G[n], [X[i] for i in G[n]]
         
-    print len(set(X)), optimal    
+    print n_colors, optimal    
     print '+' * 40    
-    return len(set(X)), X, optimal
+    return n_colors, X, optimal
     
     #print G    
     assert len(G) == n_nodes
@@ -889,8 +731,6 @@ path_list = sorted(glob.glob(mask))
 for path in path_list:
     #print '-' * 80
     print path 
-    log_name = make_log_name(path)
- 
     results_f.write('%s' % path)
     results_f.flush()
     with open(path, 'rt') as f:
