@@ -50,7 +50,7 @@ import pprint
 import re, os, time, shutil
 
 
-VERSION = 13
+VERSION = 14
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -716,7 +716,7 @@ def solve(n_nodes, n_edges, edges):
                 print 'reseting visited', v1, v2, len(visited)
             
         #if len(solutions) % 1000 == 2:
-        if time.time() > last_report_time + 6:
+        if time.time() > last_report_time + 60:
             print_best()
             last_report_time = time.time()
         
@@ -732,9 +732,12 @@ def solve(n_nodes, n_edges, edges):
                 print 'repopulating'  
                 
             add_solution(candidate_solutions, G, X, count)        
-            if len(set(X)) <= candidate_solutions[0][0] and ii > 50:
+            nn = len(set(X)) 
+            if len(candidate_solutions) >= 10 and (nn <= candidate_solutions[0][0] or ii >= 10):
                 break  
             #print ('~', len(set(X))),
+            print (len(candidate_solutions), nn) ,
+        print '.'   
         
         # Take best candidate solution
         while candidate_solutions:
