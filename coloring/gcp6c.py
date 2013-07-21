@@ -676,7 +676,7 @@ def solve(n_nodes, n_edges, edges):
     print 'n_min=%d,n_max=%d' % (n_min, n_max)
     
     MAX_SOLUTIONS = 10 * 1000
-    MAX_VISITED = 100 * 1000 * 1000 
+    MAX_VISITED = 40 * 1000 * 1000 
     assert MAX_VISITED >= 3 * MAX_SOLUTIONS
     
     candidate_solutions = SortedDeque([], MAX_SOLUTIONS)
