@@ -50,7 +50,7 @@ import pprint
 import re, os, time, shutil
 
 
-VERSION = 18
+VERSION = 19
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -617,34 +617,40 @@ def repopulate(G, visited, X0, Cso2, target_score, visited2, fraction):
     hX0 = hash(X0)
     visited.add(hX0)
     best_score = 0
-    for count in range(1000):
-        for excluded in excluded1, excluded2:
-            for _ in range(40):
-                X = list(X0)
-                for i in range(len(X)):
-                    #if color_counts[X[i]] in excluded or random.randrange(1, 3) == 1:
-                    if color_counts[X[i]] in excluded or random.random() <= fraction:  # !@#$
-                        X[i] = -1
-                X = populate2(G, X, Cso2)
-                X = normalize(X)
-                hX = hash(X)
-                if hX not in visited and hX not in visited2: # !@#$
+    while True:
+        for count in range(1000):
+            for excluded in excluded1, excluded2:
+                for _ in range(40):
+                    X = list(X0)
+                    for i in range(len(X)):
+                        #if color_counts[X[i]] in excluded or random.randrange(1, 3) == 1:
+                        if color_counts[X[i]] in excluded or random.random() <= fraction:  # !@#$
+                            X[i] = -1
+                    X = populate2(G, X, Cso2)
+                    X = normalize(X)
+                    hX = hash(X)
+                    if hX not in visited and hX not in visited2: # !@#$
+                        break
+                    visited.add(hX)    
+                if hX not in visited:
+                    break    
+            score = get_score(X)
+            if score < best_score:
+                best_score = score
+                best_X = X
+                if score <= target_score:
                     break
-                visited.add(hX)    
-            if hX not in visited:
-                break    
-        score = get_score(X)
-        if score < best_score:
-            best_score = score
-            best_X = X
-            if score <= target_score:
-                break
-    #print 'X0', hash(X0), X0
-    #print 'X', hash(X), X
-    #print '---- repopulated'
-    X = best_X
-    X = normalize(X)
-    hX = hash(X)
+        #print 'X0', hash(X0), X0
+        #print 'X', hash(X), X
+        #print '---- repopulated'
+        X = best_X
+        X = normalize(X)
+        hX = hash(X)
+        if hX not in visited:
+            break
+        fraction *= 1.1
+        print '$$ loosening repoluate to fraction=%.f' % fraction 
+        
     assert hX not in visited
     visited.add(hX) 
     return X    
