@@ -51,7 +51,7 @@ import re, os, time, shutil
 from previous_best import previousXlist
 
 
-VERSION = 23
+VERSION = 24
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -739,7 +739,7 @@ def solve(n_nodes, n_edges, edges):
     
     for i, X in enumerate(previous_X):
         hX = hash(normalize(X))
-        if hx not in visited_minimum:
+        if hX not in visited_minimum:
             add_solution(optimized_solutions, G, X, -1000 - i) 
             visited_minimum.add(hX)
      
@@ -748,7 +748,7 @@ def solve(n_nodes, n_edges, edges):
     fraction_changed = 0.33
     for count in xrange(10**9):   
         
-        if count % 500 == 0:
+        if count % 100 == 0:
             fraction_changed = 0.33
         
         fraction_changed *= 0.9
