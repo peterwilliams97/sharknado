@@ -50,7 +50,7 @@ import pprint
 import re, os, time, shutil
 
 
-VERSION = 19
+VERSION = 20
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -649,7 +649,9 @@ def repopulate(G, visited, X0, Cso2, target_score, visited2, fraction):
         if hX not in visited:
             break
         fraction *= 1.1
-        print '$$ loosening repoluate to fraction=%.f' % fraction 
+        print '$$ loosening repopulate to fraction=%f' % fraction 
+        if fraction >= 10:
+            return None
         
     assert hX not in visited
     visited.add(hX) 
@@ -753,6 +755,9 @@ def solve(n_nodes, n_edges, edges):
         for ii in range(1000):
             while True: 
                 X = repopulate(G, visited_starting, X, Cso, target_score, visited_minimum, fraction_changed)  
+                if X is None:
+                    print '!! Repopualate failed !!!'
+                    continue
                 hX = hash(X)
                 if hX not in visited_minimum and hX not in visited_tested:
                     break
