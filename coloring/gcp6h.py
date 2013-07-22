@@ -51,7 +51,7 @@ import re, os, time, shutil
 from previous_best import previousXlist
 
 
-VERSION = 25
+VERSION = 26
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -617,8 +617,10 @@ def repopulate(G, visited, X0, Cso2, target_score, visited2, fraction):
     # excluded = set([c for c, k in color_counts.items() if k <= n_colors/2])
     max_color = max(color_counts.values())
     
+    excluded0 = set([])
     excluded1 = set([c for c, k in color_counts.items() if k <= 1]) 
-    excluded2 = set([c for c, k in color_counts.items() if k <= 2])     
+    excluded2 = set([c for c, k in color_counts.items() if k <= 2])  
+    excluded3 = set([c for c, k in color_counts.items() if k <= 3])       
     #print '** excluded1', len(excluded1), (len(color_counts), len(X)), max(color_counts.values())
     #print '** excluded2', len(excluded2),
     #print [(c,color_counts[c]) for c in sorted(color_counts, key=lambda x: -color_counts[x])]
@@ -627,15 +629,15 @@ def repopulate(G, visited, X0, Cso2, target_score, visited2, fraction):
     visited.add(hX0)
     best_score = 0
     while True:
-        for count in range(1000):
-            for excluded in excluded1, excluded2:
-                for _ in range(40):
+        for count in xrange(100):
+            for excluded in excluded0, excluded1, excluded2, excluded3:
+                for ii in range(20):
                     X = list(X0)
                     for i in range(len(X)):
                         #if color_counts[X[i]] in excluded or random.randrange(1, 3) == 1:
                         if color_counts[X[i]] in excluded or random.random() <= fraction:  # !@#$
                             X[i] = -1
-                    X = populate1(G, X, Cso2)
+                    X = populate1(G, X, Cso2) if ii % 2 == 0 else populate1(G, X, Cso2)
                     X = normalize(X)
                     hX = hash(X)
                     if hX not in visited and hX not in visited2: # !@#$
@@ -657,9 +659,9 @@ def repopulate(G, visited, X0, Cso2, target_score, visited2, fraction):
         hX = hash(X)
         if hX not in visited:
             break
-        fraction *= 1.3
+        fraction *= 1.9
         print '$$ loosening repopulate to fraction=%f' % fraction 
-        if fraction >= 1.5:
+        if fraction >= 2.0:
             return None
         
     assert hX not in visited
