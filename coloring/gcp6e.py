@@ -759,7 +759,8 @@ def solve(n_nodes, n_edges, edges):
                 if X is None:
                     print '!! Repopulate failed !!!', candidate_index, len(candidate_solutions)
                     candidate_index += 1  
-                    X = candidate_solutions[candidate_index][0]
+                    target_score = candidate_solutions[candidate_index][0]
+                    X = candidate_solutions[candidate_index][-1]
                     continue
                 hX = hash(X)
                 if hX not in visited_minimum and hX not in visited_tested:
