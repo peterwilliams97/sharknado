@@ -51,7 +51,7 @@ import re, os, time, shutil
 from previous_best import previousXlist
 
 
-VERSION = 31
+VERSION = 32
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -630,14 +630,14 @@ def repopulate(G, visited, X0, Cso2, target_score, visited2, fraction):
     best_score = 0
     while True:
         for count in xrange(100):
-            for excluded in excluded0, excluded1, excluded2, excluded3:
+            for excluded in excluded1, excluded2, excluded3:
                 for ii in range(20):
                     X = list(X0)
                     for i in range(len(X)):
                         #if color_counts[X[i]] in excluded or random.randrange(1, 3) == 1:
                         if color_counts[X[i]] in excluded or random.random() <= fraction:  # !@#$
                             X[i] = -1
-                    X = populate1(G, X, Cso2) if ii % 2 == 0 else populate1(G, X, Cso2)
+                    X = populate2(G, X, Cso2) if ii % 2 == 0 else populate1(G, X, Cso2)
                     X = normalize(X)
                     hX = hash(X)
                     if hX not in visited and hX not in visited2: # !@#$
@@ -670,7 +670,7 @@ def repopulate(G, visited, X0, Cso2, target_score, visited2, fraction):
 
 import random    
  
-def solve(n_nodes, n_edges, edges):
+def solve_(n_nodes, n_edges, edges, previous_solutions):
     """
         Return chromatic number for graph
         n_nodes:number of nodes in graph
@@ -699,7 +699,7 @@ def solve(n_nodes, n_edges, edges):
     MAX_VISITED = 50 * 1000 * 1000 
     assert MAX_VISITED >= 3 * MAX_SOLUTIONS
     
-    candidate_solutions = SortedDeque([], MAX_SOLUTIONS)
+    #candidate_solutions = SortedDeque([], MAX_SOLUTIONS)
     optimized_solutions = SortedDeque([], MAX_SOLUTIONS)
     visited_starting, visited_minimum, visited_tested = set([]), set([]), set([])
             
@@ -707,12 +707,7 @@ def solve(n_nodes, n_edges, edges):
     X = populate1(G, X, Cso)    
          
     def print_best():
-        max_min = 0
-        min_k = optimized_solutions[0][0]
-        for i, soln in enumerate(optimized_solutions):
-            if soln[0] > min_k:
-                break 
-            max_min = i    
+           
         #print '=' * 80
         #print log_name
         if os.path.exists(log_name):
@@ -720,20 +715,32 @@ def solve(n_nodes, n_edges, edges):
         with open(log_name , 'wt') as f:
             f.write('VERSION=%d\n' % VERSION)
             f.write('log_name=%s\n' % log_name)
-            f.write('n_min=%d,n_max=%d\n' % (n_min, n_max))
+            
             f.write('fraction_changed=%f\n' % fraction_changed)
-            fraction_changed
-            f.write('candidate_solutions=%d,optimized_solutions=%d\n' % (len(candidate_solutions), 
-                len(optimized_solutions)))
-            f.write('count=%d,visited_starting=%d,visited_tested=%d,visited_minimum=%d\n' % (count, 
-                    len(visited_starting), len(visited_tested), len(visited_minimum)))
-            f.write('lowest number colors: %d : %s\n' % (len(optimized_solutions), 
-                [optimized_solutions[i][0:3] for i in range(min(len(optimized_solutions), 50))]))
-            f.write('best solutions: %d of %d\n' % (max_min + 1, len(optimized_solutions)))
-            for i in range(max_min + 1):
-                X = optimized_solutions[i][-1]
-                optimal = len(set(X)) == n_min
-                f.write('%3d: %s: %s\n' % (i, optimal, optimized_solutions[i]))
+            
+            
+            for name, solutions in ('optimized_solutions', optimized_solutions), ('previous_solutions', previous_solutions) :
+                f.write('%s\n' % ('-' * 80))
+                f.write('%s=%d\n' % (name, len(solutions)))
+                if not solutions:
+                    continue
+                max_min = 0
+                min_k = solutions[0][0]
+                for i, soln in enumerate(solutions):
+                    if soln[0] > min_k:
+                        break 
+                    max_min = i 
+                
+                f.write('n_min=%d,n_max=%d\n' % (n_min, n_max))
+                f.write('count=%d,visited_starting=%d,visited_tested=%d,visited_minimum=%d\n' % (count, 
+                        len(visited_starting), len(visited_tested), len(visited_minimum)))
+                f.write('lowest number colors: %d : %s\n' % (len(solutions), 
+                    [solutions[i][0:3] for i in range(min(len(solutions), 50))]))
+                f.write('best solutions: %d of %d\n' % (max_min + 1, len(solutions)))
+                for i in range(max_min + 1):
+                    X = solutions[i][-1]
+                    optimal = len(set(X)) == n_min
+                    f.write('%3d: %s: %s\n' % (i, optimal, solutions[i]))
                 
     n_colors = len(G)
     last_report_time = time.time()
@@ -773,7 +780,7 @@ def solve(n_nodes, n_edges, edges):
         #X = do_kempe(G, X)
         
         # Replenish candidate_solutions
-        target_score = candidate_solutions[0][0] if candidate_solutions else 0
+        target_score = optimized_solutions[0][0] if optimized_solutions else 0
         candidate_index = 0
         
         # Caught in a local minimum so randomize
@@ -788,42 +795,22 @@ def solve(n_nodes, n_edges, edges):
                     
         if is_local_minimum:
             fraction_changed = 0.5
-            while len(candidate_solutions) < 10:
-                candidate_solutions.popleft()
-            
-            
-            
+                         
         for ii in range(1000):
             while True: 
                 X = repopulate(G, visited_starting, X, Cso, target_score, visited_minimum, fraction_changed)  
                 if X is None:
-                    print '!! Repopulate failed !!!', candidate_index, len(candidate_solutions)
+                    print '!! Repopulate failed !!!', candidate_index, len(optimized_solutions)
                     candidate_index += 1  
-                    target_score = candidate_solutions[candidate_index][0]
-                    X = candidate_solutions[candidate_index][-1]
+                    target_score = optimized_solutions[candidate_index][0]
+                    X = optimized_solutions[candidate_index][-1]
                     continue
                 hX = hash(X)
                 if hX not in visited_minimum and hX not in visited_tested:
                     break
                 print 'repopulating'  
-                
-            add_solution(candidate_solutions, G, X, count)        
-            nn = len(set(X)) 
-            if len(candidate_solutions) >= 10 and (nn <= target_score or ii >= 10):
-                break  
-            #print ('~', len(set(X))),
-            print (len(candidate_solutions), nn) ,
-        print '.',   
         
-        # Take best candidate solution
-        while candidate_solutions:
-            soln = candidate_solutions.popleft()
-            # solution = (n_colors, score, count, hash(nX), nX)
-            if soln[3] not in visited_tested and soln[3] not in visited_minimum:
-                X = soln[-1]
-                break
-        visited_tested.add(soln[3])  
-        print soln[0], ':', fraction_changed, ':', len(candidate_solutions)
+        print X, ':', fraction_changed, ':', len(optimized_solutions)
             
         optimal = len(set(set(X))) == n_min
         if not optimal:
@@ -833,12 +820,12 @@ def solve(n_nodes, n_edges, edges):
                 optimal = n_col == n_min
                 #print 'i=%d,optimal=%s' % (len(solutions), optimal)
                 add_solution(optimized_solutions, G, X, count)
-                add_solution(candidate_solutions, G, X, count)
+                add_solution(previous_solutions, G, X, count)
                 if n_col < n_colors:
                     print 'n_colors %d => %d, count=%d, visited=%s, solutions=%s, fraction_changed=%f' % (n_colors, 
                         n_col, count, 
                         (len(visited_starting), len(visited_tested), len(visited_minimum)),
-                        (len(candidate_solutions), len(optimized_solutions)),
+                        (len(optimized_solutions)),
                         fraction_changed)
                     n_colors = n_col
                 if optimal:
@@ -874,9 +861,6 @@ def solve(n_nodes, n_edges, edges):
                         (solutions[i][2], len(solutions)-solutions[i][2] -1), hash(s[1])) 
                             for i in range(min(len(solutions), 40))]
             print 'visited', len(visited), visited   
-
-        
-            
         
     
     print '*^*Done'
@@ -928,7 +912,15 @@ def solve(n_nodes, n_edges, edges):
 
     
 
-
+def solve(n_nodes, n_edges, edges):
+    n_colors_best = n_edges
+    previous_solutions = SortedDeque([], 1000)
+    n_colors, colors, optimal = solve_(n_nodes, n_edges, edges, previous_solutions)
+    if optimal:
+        return n_colors, colors, optimal 
+        
+        
+    
 def solveIt(inputData):
     # Modify this code to run your optimization algorithm
 
