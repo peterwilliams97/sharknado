@@ -51,7 +51,7 @@ import re, os, time, shutil
 from previous_best import previousXlist
 
 
-VERSION = 32
+VERSION = 33
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -795,21 +795,25 @@ def solve_(n_nodes, n_edges, edges, previous_solutions):
                     
         if is_local_minimum:
             fraction_changed = 0.5
-                         
-        for ii in range(1000):
-            while True: 
-                X = repopulate(G, visited_starting, X, Cso, target_score, visited_minimum, fraction_changed)  
-                if X is None:
-                    print '!! Repopulate failed !!!', candidate_index, len(optimized_solutions)
-                    candidate_index += 1  
-                    target_score = optimized_solutions[candidate_index][0]
-                    X = optimized_solutions[candidate_index][-1]
-                    continue
-                hX = hash(X)
-                if hX not in visited_minimum and hX not in visited_tested:
-                    break
-                print 'repopulating'  
-        
+           
+            
+        #for ii in range(1000):
+        while candidate_index < len(optimized_solutions): 
+            X = repopulate(G, visited_starting, X, Cso, target_score, visited_minimum, fraction_changed)  
+            if X is None:
+                print '!! Repopulate failed !!!', candidate_index, len(optimized_solutions)
+                candidate_index += 1  
+                target_score = optimized_solutions[candidate_index][0]
+                X = optimized_solutions[candidate_index][-1]
+                continue
+            hX = hash(X)
+            if hX not in visited_minimum and hX not in visited_tested:
+                break
+            print 'repopulating'  
+        if X is None:
+            print '%% %% No decent neighbours'
+            break
+            
         print X, ':', fraction_changed, ':', len(optimized_solutions)
             
         optimal = len(set(set(X))) == n_min
@@ -849,8 +853,6 @@ def solve_(n_nodes, n_edges, edges, previous_solutions):
                 else:
                     max_i = max_all
                 X = optimized_solutions[random.randrange(0, max_i+1)][-1]    
-            
-         
             
        
         #visited = [hash(s[1]) for s in solutions]
