@@ -51,7 +51,7 @@ import re, os, time, shutil
 from previous_best import previousXlist
 
 
-VERSION = 28
+VERSION = 30
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -739,11 +739,12 @@ def solve(n_nodes, n_edges, edges):
     last_report_time = time.time()
     #while len(solutions) < MAX_SOLUTIONS:
     
-    for i, X in enumerate(previous_X):
-        hX = hash(normalize(X))
-        if hX not in visited_minimum:
-            add_solution(optimized_solutions, G, X, -1000 - i) 
-            visited_minimum.add(hX)
+    if False:
+        for i, X in enumerate(previous_X):
+            hX = hash(normalize(X))
+            if hX not in visited_minimum:
+                add_solution(optimized_solutions, G, X, -1000 - i) 
+                visited_minimum.add(hX)
      
     print '^^^', len(optimized_solutions), len(visited_minimum)
     
@@ -759,7 +760,7 @@ def solve(n_nodes, n_edges, edges):
        
         if len(visited_minimum) >= MAX_VISITED: # 1000 * 1000:
             v1 = len(visited_minimum)
-            visited = set(list(visited_minimum)[(len(visited_minimum)*2)//3:])
+            visited_minimum = set([])
             v2 = len(visited_minimum)
             visited_minimum = visited_minimum | set(s[-2] for s in optimized_solutions)
             print 'reseting visited', v1, v2, len(visited_minimum)
