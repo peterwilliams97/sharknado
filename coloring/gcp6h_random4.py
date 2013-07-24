@@ -775,8 +775,8 @@ def solve_(n_nodes, n_edges, edges, previous_solutions,
     
     for count in xrange(10**9):   
         
-        if count % 100 == 0:
-            fraction_changed = 0.33
+        #if count % 100 == 0:
+        #    fraction_changed = 0.33
         
         fraction_changed *= 0.9
         if fraction_changed < 0.05:
