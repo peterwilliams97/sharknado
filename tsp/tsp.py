@@ -11,8 +11,8 @@ def length(point1, point2):
 
 def trip(locations, order):
     dist = 0
-    p1 = locations[order[0]]
-    for i in order[1:]:
+    p1 = locations[order[-1]]
+    for i in order:
         p2 = locations[i]
         #dist += np.hypot(p1 - p2) 
         diff = p1 - p2
@@ -21,7 +21,16 @@ def trip(locations, order):
         p1 = p2
         #exit()    
     return dist
-  
+
+
+def trip2(distances, order):
+    dist = 0
+    i = order[-1]
+    for j in order:
+        dist += distances[i, j]  
+        i = j    
+    return dist
+    
 NUM_SOLUTIONS = 40  
         
 def solve(points):
@@ -71,20 +80,16 @@ def solve(points):
     counts = np.zeros(NUM_SOLUTIONS)
     for __ in xrange(4):
         for _ in xrange(NUM_SOLUTIONS * 1000):
-            #x = np.random.random()
-            #y = -np.log((x + eps)/(1.0 + eps))
-            #z = y * NUM_SOLUTIONS-1
-            z = np.random.exponential(NUM_SOLUTIONS * 0.1)
-            n = int(np.floor(z))
+           `z = np.random.exponential(NUM_SOLUTIONS * 0.1)
+            n = min(int(np.floor(z)), NUM_SOLUTIONS -1)
             #print (x, y, z), (n, NUM_SOLUTIONS)
-            if n >= NUM_SOLUTIONS: n = NUM_SOLUTIONS -1
             counts[n] +=1     
-            #continue
             dist, hsh, order = solutions[n]
-            i1 = np.random.randint(0, N - 1)
-            i2 = np.random.randint(0, N - 1)
+            i1 = np.random.randint(0, N - 2)
+            i2 = np.random.randint(0, N - 2)
             if i1 == i2:
                 continue
+            diff =     
             order2 = order.copy()
             order2[i1] = order[i2]
             order2[i2] = order[i1]
