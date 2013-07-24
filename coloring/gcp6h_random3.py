@@ -51,7 +51,7 @@ import re, os, time, shutil
 from previous_best import previousXlist
 
 
-VERSION = 34
+VERSION = 37
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -696,8 +696,9 @@ def solve_(n_nodes, n_edges, edges, previous_solutions,
     n_max = len(G)
     print 'n_min=%d,n_max=%d' % (n_min, n_max)
     
-    MAX_SOLUTIONS = 10 * 1000
+    MAX_SOLUTIONS =  1000
     MAX_VISITED = 50 * 1000 * 1000 
+     
     assert MAX_VISITED >= 3 * MAX_SOLUTIONS
     
     #candidate_solutions = SortedDeque([], MAX_SOLUTIONS)
@@ -713,8 +714,7 @@ def solve_(n_nodes, n_edges, edges, previous_solutions,
     visited_minimum.discard(hX) 
     visited_tested.discard(hX) 
     visited_starting.discard(hX) 
-   
-         
+            
     def print_best():
            
         #print '=' * 80
@@ -727,7 +727,6 @@ def solve_(n_nodes, n_edges, edges, previous_solutions,
             
             f.write('fraction_changed=%f\n' % fraction_changed)
             
-            
             for name, solutions in ('optimized_solutions', optimized_solutions), ('previous_solutions', previous_solutions) :
                 f.write('%s\n' % ('-' * 80))
                 f.write('%s=%d\n' % (name, len(solutions)))
@@ -739,6 +738,7 @@ def solve_(n_nodes, n_edges, edges, previous_solutions,
                     if soln[0] > min_k:
                         break 
                     max_min = i 
+                  
                 
                 f.write('n_min=%d,n_max=%d\n' % (n_min, n_max))
                 f.write('count=%d,visited_starting=%d,visited_tested=%d,visited_minimum=%d\n' % (count, 
@@ -746,7 +746,7 @@ def solve_(n_nodes, n_edges, edges, previous_solutions,
                 f.write('lowest number colors: %d : %s\n' % (len(solutions), 
                     [solutions[i][0:3] for i in range(min(len(solutions), 50))]))
                 f.write('best solutions: %d of %d\n' % (max_min + 1, len(solutions)))
-                for i in range(max_min + 1):
+                for i in range(min(100, max_min + 1)):
                     X = solutions[i][-1]
                     optimal = len(set(X)) == n_min
                     f.write('%3d: %s: %s\n' % (i, optimal, solutions[i]))
@@ -765,6 +765,8 @@ def solve_(n_nodes, n_edges, edges, previous_solutions,
     print '^^^', len(optimized_solutions), len(visited_minimum)
     
     fraction_changed = 0.33
+    local_minimum_count = 0
+    
     for count in xrange(10**9):   
         
         if count % 100 == 0:
@@ -776,10 +778,10 @@ def solve_(n_nodes, n_edges, edges, previous_solutions,
        
         if len(visited_minimum) >= MAX_VISITED: # 1000 * 1000:
             v1 = len(visited_minimum)
-            visited_minimum = set([])
+            visited_minimum.clear()
             v2 = len(visited_minimum)
             visited_minimum = visited_minimum | set(s[-2] for s in optimized_solutions)
-            print 'reseting visited', v1, v2, len(visited_minimum)
+            print 'resetting visited', v1, v2, len(visited_minimum)
             
         #if len(solutions) % 1000 == 2:
         if time.time() > last_report_time + 60:
@@ -799,11 +801,17 @@ def solve_(n_nodes, n_edges, edges, previous_solutions,
             n_lowest, score_lowest = optimized_solutions[0][:2]
             if len(optimized_solutions) > n_lowest:
                 if optimized_solutions[n_lowest][1] == optimized_solutions[0][1]: 
-                    print 'local minimum', n_lowest, score_lowest
+                    print 'local minimum', (n_lowest, score_lowest), local_minimum_count
                     is_local_minimum = True
-                    
+                      
         if is_local_minimum:
             fraction_changed = 0.5
+            local_minimum_count += 1
+            if local_minimum_count > max(10, n_colors * 2):
+                print 'Too long on local minimum'    
+                break
+        else:
+            local_minimum_count = 0
           
          
         #for ii in range(1000):
