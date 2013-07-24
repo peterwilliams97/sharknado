@@ -51,7 +51,7 @@ import re, os, time, shutil
 from previous_best import previousXlist
 
 
-VERSION = 33
+VERSION = 34
 print 'VERSION=%d' % VERSION
 
 _pp = pprint.PrettyPrinter(indent=4)
@@ -660,8 +660,8 @@ def repopulate(G, visited, X0, Cso2, target_score, visited2, fraction):
         if hX not in visited:
             break
         fraction *= 1.9
-        print '$$ loosening repopulate to fraction=%f' % fraction 
-        if fraction >= 2.0:
+        #print '$$ loosening repopulate to fraction=%f' % fraction 
+        if fraction >= 1.9:
             return None
         
     assert hX not in visited
@@ -670,7 +670,8 @@ def repopulate(G, visited, X0, Cso2, target_score, visited2, fraction):
 
 import random    
  
-def solve_(n_nodes, n_edges, edges, previous_solutions):
+def solve_(n_nodes, n_edges, edges, previous_solutions,
+            visited_starting, visited_minimum, visited_tested):
     """
         Return chromatic number for graph
         n_nodes:number of nodes in graph
@@ -701,10 +702,18 @@ def solve_(n_nodes, n_edges, edges, previous_solutions):
     
     #candidate_solutions = SortedDeque([], MAX_SOLUTIONS)
     optimized_solutions = SortedDeque([], MAX_SOLUTIONS)
-    visited_starting, visited_minimum, visited_tested = set([]), set([]), set([])
+    #visited_starting, visited_minimum, visited_tested = set([]), set([]), set([])
             
     X = [-1] * len(G)
-    X = populate1(G, X, Cso)    
+    X = populate1(G, X, Cso) 
+
+    X = normalize(X)
+    hX = hash(X)
+
+    visited_minimum.discard(hX) 
+    visited_tested.discard(hX) 
+    visited_starting.discard(hX) 
+   
          
     def print_best():
            
@@ -795,26 +804,31 @@ def solve_(n_nodes, n_edges, edges, previous_solutions):
                     
         if is_local_minimum:
             fraction_changed = 0.5
-           
-            
+          
+         
         #for ii in range(1000):
-        while candidate_index < len(optimized_solutions): 
+        foundX = True
+        while candidate_index < min(len(optimized_solutions), n_colors): 
+            foundX = False
             X = repopulate(G, visited_starting, X, Cso, target_score, visited_minimum, fraction_changed)  
             if X is None:
-                print '!! Repopulate failed !!!', candidate_index, len(optimized_solutions)
+                #print '!! Repopulate failed !!!', candidate_index, len(optimized_solutions)
                 candidate_index += 1  
                 target_score = optimized_solutions[candidate_index][0]
                 X = optimized_solutions[candidate_index][-1]
                 continue
+            X = normalize(X)    
             hX = hash(X)
             if hX not in visited_minimum and hX not in visited_tested:
+                foundX = True
                 break
             print 'repopulating'  
-        if X is None:
-            print '%% %% No decent neighbours'
+        if not foundX:
+            print '%% %% No decent neighbours', candidate_index, (len(optimized_solutions), n_colors)
             break
             
-        print X, ':', fraction_changed, ':', len(optimized_solutions)
+        #print X, ':', fraction_changed, ':', len(optimized_solutions)
+        print fraction_changed, ':', (candidate_index, len(optimized_solutions)), n_colors, '::', 
             
         optimal = len(set(set(X))) == n_min
         if not optimal:
@@ -867,59 +881,25 @@ def solve_(n_nodes, n_edges, edges, previous_solutions):
     
     print '*^*Done'
     print_best()
-        
-    exit()    
-         
-    for n in G:
-        assert X[n] >= 0, '%d %s' % (n, G[n])
-        assert all(X[n] != X[n1] for n1 in G[n]), '\n%d %s\n%d %s' % (
-            n, G[n], X[n], [X[n1] for n1 in G[n]] ) 
-    
-    for n in G:
-        print n, X[n], G[n], [X[i] for i in G[n]]
-        
-    print len(set(X)), optimal    
-    print '+' * 40    
-    return len(set(X)), X, optimal
-    
-    #print G    
-    assert len(G) == n_nodes
-    #print '-' * 80 
-    
-    # Nodes by order
-    C = [-1] * n_nodes
-    C[0] = 0
-    
-    Q, V = [0], set([])
-    while Q:
-        n = Q.pop()
-        if n in V:
-            continue
-        V.add(n)
-        #print n, G[n],
-        for c in count():
-         #   print c, 
-            if not any(c == C[i] for i in G[n]):
-                break
-        C[n] = c        
-        #print ':', c 
-        for m in G[n]:
-            Q.append(m)
-        
-  
-    #print '-' * 80            
-    #print C  
-    #print '=' * 80  
-    return len(set(C)), [C[i] for i in range(n_nodes)], True  
-
+    X = optimized_solutions[0][-1]
+    return n_colors, X, optimal
+   
     
 
 def solve(n_nodes, n_edges, edges):
     n_colors_best = n_edges
     previous_solutions = SortedDeque([], 1000)
-    n_colors, colors, optimal = solve_(n_nodes, n_edges, edges, previous_solutions)
-    if optimal:
-        return n_colors, colors, optimal 
+    
+    while True:
+        visited_starting, visited_minimum, visited_tested = set([]), set([]), set([])
+        n_colors, X, optimal = solve_(n_nodes, n_edges, edges, previous_solutions,
+                    visited_starting, visited_minimum, visited_tested)
+        print '=' * 80
+        print n_colors,  optimal
+        if optimal:
+            return n_colors, X, optimal 
+        print '=' * 80
+        print '*** Restarting'
         
         
     
