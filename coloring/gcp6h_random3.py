@@ -738,8 +738,7 @@ def solve_(n_nodes, n_edges, edges, previous_solutions,
                     if soln[0] > min_k:
                         break 
                     max_min = i 
-                  
-                
+
                 f.write('n_min=%d,n_max=%d\n' % (n_min, n_max))
                 f.write('count=%d,visited_starting=%d,visited_tested=%d,visited_minimum=%d\n' % (count, 
                         len(visited_starting), len(visited_tested), len(visited_minimum)))
