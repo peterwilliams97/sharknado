@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import math
+import math, random
 import numpy as np
 from utils import SortedDeque
 
@@ -34,18 +34,19 @@ def trip2(distances, order):
     
 def populate_greedy(N, distances, closest, start):
     traverse = np.zeros(N)
-    tranverse[start:] = arange(N - start)
-    traverse[:start] = N - start + arange(start)
+    traverse[start:] = np.arange(N - start)
+    traverse[:start] = N - start + np.arange(start)
     
     order = np.arange(N)
     order[0] = start
     nodes = set()
     for i in traverse:
-        for j in closest:
-            if j not in visited:
+        for j in closest[i]:
+            if j not in nodes:
                 order[i] = j
-                visited.add(j)
-    return order, trip2(distances, order)
+                nodes.add(j)
+
+    return trip2(distances, order), order
     
      
 def precalculate(points): 
@@ -63,7 +64,7 @@ def precalculate(points):
             distances[i][j] = np.sqrt(diff[j][0] ** 2 + diff[j][1] ** 2) #;  np.hypot(diff[j]) 
             
     # Ordering of distances, closest firts.
-    closest = np.zerox((N, N), dype=np.int32)
+    closest = np.zeros((N, N), dtype=np.int32)
     for i in xrange(N):
         a = range(N)
         a.sort(key=lambda j: distances[i, j])
@@ -73,55 +74,71 @@ def precalculate(points):
 
 
 def calc2opt(N, distances, order):
+
+    assert isinstance(order, np.ndarray), type(order)
         
     N1 = N - 1
    
     # select indices of two random points in the tour
     p1, p2 = random.randrange(0, N), random.randrange(0, N)
     # do this so as not to overshoot tour boundaries
-    exclude = set([p1, 
-        p1 - 1 if p1 > 0 else N1,
-        p1 + 1 if p1 < N1 else 0])
-                       
+    p1b = p1 - 1 if p1 > 0 else N1 
+    p1a = p1 + 1 if p1 < N1 else 0
+    exclude = set([p1, p1b, p1a])
+     
     while p2 in exclude:
         p2 = random.randrange(0, N)
+    
+    p2b = p2 - 1 if p2 > 0 else N1 
+    p2a = p2 + 1 if p2 < N1 else 0
 
     # to ensure we always have p1<p2        
     if p2 < p1:
         p1, p2 = p2, p1
     
-    w1, w2 = order0[p1 - 1: p1]
-    w3, w4 = order0[p2 - 1: p2]
+    #print p1, p2, N1, order.shape
+    w1, w2 = order[p1a], order[p1]
+    w3, w4 = order[p2a], order[p2]
     delta = distances[w1, w2] + distances[w3, w4] - (distances[w1, w3] + distances[w2, w4])
     return delta, p1, p2 
     
     
-def do2opt_best(N, distances, order, dist, max_iter):
+def do2opt_best(N, distances, dist, order, max_iter):
     for _ in xrange(max_iter):
         delta, p1, p2 = calc2opt(N, distances, order)
         if delta < 0:
             break
             
     order1 = order.copy() # make a copy
-    order[p1:p2] = order1[p1:p2:-1] # reverse the tour segment between p1 and p2       
-    return order1, dist + delta 
+    #print 'order :', order.shape, order[p1:p2].shape 
+    #print 'order1:', order1.shape,  order1[p2:p1:-1].shape 
+    order1[p1:p2] = order[p2:p1:-1] # reverse the tour segment between p1 and p2       
+    return dist + delta, order1 
 
     
-def do2opt_any(N, distances, order, dist):
+def do2opt_any(N, distances, dist, order):
     delta, p1, p2 = calc2opt(N, distances, order)
     order1 = order.copy() # make a copy
-    order[p1:p2] = order1[p1:p2:-1] # reverse the tour segment between p1 and p2       
-    return order1, dist + delta
+    order1[p1:p2] = order[p2:p1:-1] # reverse the tour segment between p1 and p2       
+    assert isinstance(order, np.ndarray), type(order)
+    #print '@12', order1.shape
+    return dist + delta, order1
     
     
-def search(N, distances, order, dist):
+def search(N, distances, visited, hash_base, dist, order):
     """Search for best solution starting with order"""
   
-    MAX_NO_CHANGE = N * 2    
+    assert isinstance(dist, float), type(dist)
+    assert isinstance(order, np.ndarray), type(order)
+    #print '@1', order.shape
+  
+    MAX_NO_IMPROVEMENT = 10 
+    MAX_ITER = 20     
     local_min_count = 0
     
     best = (dist, order)
     
+    no_improvement_count = 0
     while no_improvement_count <= MAX_NO_IMPROVEMENT:
         
         # for each neighborhood in neighborhoods
@@ -131,15 +148,19 @@ def search(N, distances, order, dist):
             for index in range(0, neighborhood):
                 # Get candidate solution from neighborhood
                 dist, order = do2opt_any(N, distances, dist, order)
+                #print '@2', order.shape
+                
+            #print '@3', order.shape    
                 
             hsh = np.dot(hash_base, order)
+            #print hash_base.shape, order.shape, hsh.shape
             if hsh in visited:
-                print 'Seen this solution already
+                #print 'Seen this solution already'
                 continue
             visited.add(hsh)        
 
             # Refine candidate solution using local search and neighborhood
-            order, dist = do2opt_best(N, distances, order, dist, max_iter)
+            dist, order = do2opt_best(N, distances, dist, order, MAX_ITER)
             #if the cost of the candidate is lesser than cost of current best then replace
             #best with current candidate
             if dist < best[0]:
@@ -151,7 +172,8 @@ def search(N, distances, order, dist):
 
     return best                
     
-NUM_SOLUTIONS = 40  
+NUM_SOLUTIONS = 40 
+MAX_ITER = 100 
         
 def solve(points):
     """Return traversal order of points that minimizes distance travelled"""
@@ -166,16 +188,19 @@ def solve(points):
     
     for start in xrange(N):
         dist, order = populate_greedy(N, distances, closest, start)
-        delta, order = do2opt(N, distances, order, max_iter)
+        delta, order = do2opt_best(N, distances, dist, order, MAX_ITER)
         hsh = np.dot(hash_base, order)
+        #print hash_base.shape, order.shape, hsh.shape
         assert hsh not in visited
         visited.add(hsh)    
         outer_solutions.append((dist, hsh, order))
         if delta < 0 or not optimum_solutions:
             optimum_solutions.append((dist, hsh, order))
+            print 'best:', optimum_solutions[-1][0]
             
     for dist, hsh, order in outer_solutions:
-        order, delta = search(N, distances, visted, order)
+                       
+        delta, order = search(N, distances, visited, hash_base, dist, order)
         if delta < 0:
             optimum_solutions.append((dist, hsh, order))
     
