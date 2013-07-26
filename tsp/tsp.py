@@ -1,7 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+from __future__ import division
 import math, random
 import numpy as np
+from itertools import count
 from utils import SortedDeque
 
 def length(point1, point2):
@@ -112,7 +114,8 @@ def do2opt_best(N, distances, dist, order, max_iter):
     order1 = order.copy() # make a copy
     #print 'order :', order.shape, order[p1:p2].shape 
     #print 'order1:', order1.shape,  order1[p2:p1:-1].shape 
-    order1[p1:p2] = order[p2:p1:-1] # reverse the tour segment between p1 and p2       
+    order1[p1:p2] = order[p2:p1:-1] # reverse the tour segment between p1 and p2  
+    assert len(set(order1)) == len(order1), '%d %d : %d %d' % (len(set(order1)), len(order1), p1 , p2)     
     return dist + delta, order1 
 
     
@@ -122,6 +125,7 @@ def do2opt_any(N, distances, dist, order):
     order1[p1:p2] = order[p2:p1:-1] # reverse the tour segment between p1 and p2       
     assert isinstance(order, np.ndarray), type(order)
     #print '@12', order1.shape
+    assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))     
     return dist + delta, order1
     
     
@@ -133,16 +137,22 @@ def search(N, distances, visited, hash_base, dist, order):
     #print '@1', order.shape
   
     MAX_NO_IMPROVEMENT = 10 
-    MAX_ITER = 20     
+    MAX_ITER = 20 
+    MAX_NEIGHBORHOOD = 20 
+    
     local_min_count = 0
     
     best = (dist, order)
     
+    print 'search', dist
+    
     no_improvement_count = 0
+    counter = count()
+    i = next(counter)   
     while no_improvement_count <= MAX_NO_IMPROVEMENT:
         
         # for each neighborhood in neighborhoods
-        for neighborhood in range(1, N):
+        for neighborhood in range(1, MAX_NEIGHBORHOOD):
             
             #Calculate Neighborhood : Involves running stochastic two opt for neighbor times
             for index in range(0, neighborhood):
@@ -169,6 +179,13 @@ def search(N, distances, visited, hash_base, dist, order):
                 break
             else: # increment the count as we did not find a local optima
                 no_improvement_count +=1
+               
+            i = next(counter)   
+            if i % 1000 == 100:
+                print '$$', neighborhood, no_improvement_count, i
+                
+        #print '**', neighborhood, no_improvement_count, i   
+        visited.add(hsh)      
 
     return best                
     
