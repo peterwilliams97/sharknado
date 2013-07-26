@@ -183,10 +183,11 @@ def do2opt_best(N, distances, dist, order, max_iter):
     #print set(range(N)) - set(order1)
     assert len(set(order1)) == len(order1), '%d %d : %d %d' % (len(set(order1)), len(order1), p1 , p2)     
     
-    print p1, p2
-    for o in order, order1:
-        print '----'
-        print '%s\n%s\n%s' % (o[:p1], o[p1:p2+1], o[p2+1:]) 
+    if DEBUG:
+        print p1, p2
+        for o in order, order1:
+            print '----'
+            print '%s\n%s\n%s' % (o[:p1], o[p1:p2+1], o[p2+1:]) 
         
     assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
  
@@ -220,12 +221,12 @@ def search(N, distances, visited, hash_base, dist, order):
   
     assert isinstance(dist, float), type(dist)
     assert isinstance(order, np.ndarray), type(order)
-    assert dist  == trip2(distances, order)
+    assert CLOSE(dist, trip2(distances, order))
     #print '@1', order.shape
   
-    MAX_NO_IMPROVEMENT = 10 
-    MAX_ITER = 20 
-    MAX_NEIGHBORHOOD = 20 
+    MAX_NO_IMPROVEMENT = 20 
+    MAX_ITER = 40 
+    MAX_NEIGHBORHOOD = 30 
     
     local_min_count = 0
     
@@ -247,7 +248,7 @@ def search(N, distances, visited, hash_base, dist, order):
                 dist, order = do2opt_any(N, distances, dist, order)
                 #print '@2', order.shape
                 
-            #print '@3', order.shape    
+            #print ('@', dist),    
                 
             hsh = np.dot(hash_base, order)
             #print hash_base.shape, order.shape, hsh.shape
@@ -258,21 +259,23 @@ def search(N, distances, visited, hash_base, dist, order):
 
             # Refine candidate solution using local search and neighborhood
             dist, order = do2opt_best(N, distances, dist, order, MAX_ITER)
-            #if the cost of the candidate is lesser than cost of current best then replace
+            #if the cost of the candidate is less than cost of current best then replace
             #best with current candidate
             assert dist > 0
             if dist < best[0]:
                 best, no_improvement_count = (dist, order), 0 # We also restart the search when we find the local optima
                 # break: this breaks out of the neighborhoods iteration
                 break
-        else: # increment the count as we did not find a local optima
-            no_improvement_count +=1
-               
+            #else: # increment the count as we did not find a local optima
+            #    no_improvement_count +=1    
+                       
             i = next(counter)   
             if i % 1000 == 100:
                 print '$$', neighborhood, no_improvement_count, i
+        else: # increment the count as we did not find a local optima
+            no_improvement_count +=1        
                 
-        print '**', neighborhood, no_improvement_count, i   
+        print '**', neighborhood, no_improvement_count, i, best[0]   
         visited.add(hsh)      
 
     print 'Done search', best    
@@ -297,7 +300,7 @@ def solve(points):
         assert len(set(order)) == len(order), start
         assert dist  == trip2(distances, order)
         dist, order = do2opt_best(N, distances, dist, order, MAX_ITER)
-        assert dist == trip2(distances, order), '%s %s' % (dist, trip2(distances, order))
+        assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
         assert dist > 0
                 
        
@@ -355,7 +358,24 @@ def solveIt(inputData):
         [0.5, 0.0],
         [1.0, 0.5],
         [0.5, 1.0],
-    ]     
+    ]  
+
+    points = [
+        [0.0, 0.0],
+        [0.0, 1.0],
+        [1.0, 0.0],
+        [1.0, 1.0],
+        
+        [0.0, 0.5],
+        [0.5, 0.0],
+        [1.0, 0.5],
+        [0.5, 1.0],
+        
+        [0.0, 0.25],
+        [0.25, 0.0],
+        [1.0, 0.25],
+        [0.25, 1.0],
+    ]      
     nodeCount = len(points)
 
     if False:    
