@@ -6,7 +6,12 @@ import numpy as np
 from itertools import count
 from utils import SortedDeque
 
-DEBUG = True
+DEBUG = False
+EPSILON = 1e-6
+
+def CLOSE(a, b):
+    return abs(a - b) < EPSILON
+
 random.seed(111)
 
 def length(point1, point2):
@@ -65,9 +70,9 @@ def populate_greedy(N, distances, closest, start):
      
 def precalculate(points): 
     N = len(points)
-    locations = np.array(points, dtype=np.float32)
+    locations = np.array(points, dtype=np.float64)
     
-    distances = np.zeros((N, N), dtype=np.float32)
+    distances = np.zeros((N, N), dtype=np.float64)
     for i in xrange(N):
         diff = locations - locations[i]
         #print diff.shape
@@ -92,10 +97,10 @@ def calc2opt(N, distances, order, dist_check):
     """
 
     assert isinstance(order, np.ndarray), type(order)
-    assert dist_check  == trip2(distances, order)
+    assert CLOSE(dist_check, trip2(distances, order)), '%s %s' % (dist_check, trip2(distances, order))
     
-    print 'calc2opt:', order
-    print distances
+    #print 'calc2opt:', order
+    #print distances
     
     N1 = N - 1
    
@@ -124,13 +129,13 @@ def calc2opt(N, distances, order, dist_check):
     p2a = p2 + 1 if p2 < N1 else 0
     w1, w2 = order[p1], order[p1a]   
     w3, w4 = order[p2], order[p2a]    
-    print (p1, p1a), (p2, p2a)    
+    #print (p1, p1a), (p2, p2a)    
     
     #print p1, p2, N1, order.shape
     #w1, w2 = order[p1], order[p1a]
    
-    print (p1, (w1, w2)), (p2, (w3, w4))
-    print (distances[w1, w2], distances[w3, w4]), (distances[w1, w3], distances[w2, w4])
+    #print (p1, (w1, w2)), (p2, (w3, w4))
+    #print (distances[w1, w2], distances[w3, w4]), (distances[w1, w3], distances[w2, w4])
     delta = (distances[w1, w3] + distances[w2, w4]) - (distances[w1, w2] + distances[w3, w4]) 
     
     if DEBUG:
@@ -177,17 +182,24 @@ def do2opt_best(N, distances, dist, order, max_iter):
         order1[p1:p2+1] = order[p2:p1-1:-1] # reverse the tour segment between p1 and p2  
     #print set(range(N)) - set(order1)
     assert len(set(order1)) == len(order1), '%d %d : %d %d' % (len(set(order1)), len(order1), p1 , p2)     
-    assert dist == trip2(distances, order)
+    
     print p1, p2
     for o in order, order1:
-        print '%s\n%s\n%s\n' % (o[:p1], o[p1:p2+1], o[p2+1:]) 
-
-    assert dist + delta == trip2(distances, order1), '%s %s %s' % (dist, delta, trip2(distances, order1))
+        print '----'
+        print '%s\n%s\n%s' % (o[:p1], o[p1:p2+1], o[p2+1:]) 
+        
+    assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
+ 
+    assert CLOSE(dist + delta, trip2(distances, order1)), '%s %s %s %s %e' % (dist, delta, 
+        dist + delta,
+        trip2(distances, order1),
+        (dist + delta - trip2(distances, order1))/EPSILON)
     return dist + delta, order1 
 
     
 def do2opt_any(N, distances, dist, order):
-    assert dist  == trip2(distances, order)
+    
+    assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
     
     delta, p1, p2 = calc2opt(N, distances, order, dist)
     assert dist + delta > 0
@@ -253,16 +265,17 @@ def search(N, distances, visited, hash_base, dist, order):
                 best, no_improvement_count = (dist, order), 0 # We also restart the search when we find the local optima
                 # break: this breaks out of the neighborhoods iteration
                 break
-            else: # increment the count as we did not find a local optima
-                no_improvement_count +=1
+        else: # increment the count as we did not find a local optima
+            no_improvement_count +=1
                
             i = next(counter)   
             if i % 1000 == 100:
                 print '$$', neighborhood, no_improvement_count, i
                 
-        #print '**', neighborhood, no_improvement_count, i   
+        print '**', neighborhood, no_improvement_count, i   
         visited.add(hsh)      
 
+    print 'Done search', best    
     return best                
     
 NUM_SOLUTIONS = 40 
@@ -283,10 +296,11 @@ def solve(points):
         dist, order = populate_greedy(N, distances, closest, start)
         assert len(set(order)) == len(order), start
         assert dist  == trip2(distances, order)
-        delta, order = do2opt_best(N, distances, dist, order, MAX_ITER)
-        dist += delta
-        assert dist == trip2(distances, order), '%s %s %s' % (dist, delta, trip2(distances, order))
+        dist, order = do2opt_best(N, distances, dist, order, MAX_ITER)
+        assert dist == trip2(distances, order), '%s %s' % (dist, trip2(distances, order))
         assert dist > 0
+                
+       
         assert len(set(order)) == len(order), start
         hsh = np.dot(hash_base, order)
         #print hash_base.shape, order.shape, hsh.shape
@@ -330,7 +344,18 @@ def solveIt(inputData):
         [0.0, 1.0],
         [1.0, 0.0],
         [1.0, 1.0],
-    ]    
+    ] 
+
+    points = [
+        [0.0, 0.0],
+        [0.0, 1.0],
+        [1.0, 0.0],
+        [1.0, 1.0],
+        [0.0, 0.5],
+        [0.5, 0.0],
+        [1.0, 0.5],
+        [0.5, 1.0],
+    ]     
     nodeCount = len(points)
 
     if False:    
@@ -344,7 +369,8 @@ def solveIt(inputData):
             obj += length(points[solution[index]], points[solution[index+1]])
 
     assert nodeCount == len(points)        
-    dist, order = solve(points)    
+    dist, order = solve(points) 
+    print [points[i] for i in order]
         
     # prepare the solution in the specified output format
     outputData = str(dist) + ' ' + str(0) + '\n'
