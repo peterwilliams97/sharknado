@@ -19,7 +19,7 @@ def length(point1, point2):
     #return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
 
 
-def trip(locations, order):
+def _trip(locations, order):
     dist = 0
     p1 = locations[order[-1]]
     for i in order:
@@ -154,6 +154,7 @@ def calc2opt(N, distances, order, dist_check):
     return delta, p1a, p2 
     
     
+    
 def do2opt_best(N, distances, dist, order, max_iter):
 
     assert len(set(order)) == len(order)
@@ -216,6 +217,155 @@ def do2opt_any(N, distances, dist, order):
     #print '@12', order1.shape
     assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))     
     return dist + delta, order1
+
+
+    
+def calc3opt(N, distances, order, dist_check):
+    """-opt
+        Reverse [p1:p2] inclusive
+    """
+
+    assert isinstance(order, np.ndarray), type(order)
+    assert CLOSE(dist_check, trip2(distances, order)), '%s %s' % (dist_check, trip2(distances, order))
+    
+    #print 'calc2opt:', order
+    #print distances
+    
+    N1 = N - 1
+   
+    # select indices of 3 random points in the tour
+    p1, p2, p3 = random.randrange(0, N), random.randrange(0, N), random.randrange(0, N)
+    # do this so as not to overshoot tour boundaries
+   
+    p1b = p1 - 1 if p1 > 0 else N1 
+    p1a = p1 + 1 if p1 < N1 else 0
+    w0, w1, w2 = order[p1b], order[p1], order[p1a]
+        
+    exclude = set([w0, w1, w2])
+     
+    while order[p2] in exclude:
+        p2 = random.randrange(0, N)
+    
+    p2b = p2 - 1 if p2 > 0 else N1 
+    p2a = p2 + 1 if p2 < N1 else 0
+    w3b, w3, w4 = order[p2b], order[p2], order[p2a]
+    exclude.add(w3b)
+    exclude.add(w3)
+    exclude.add(w4)
+    
+    while order[p3] in exclude:
+        p3 = random.randrange(0, N)
+    
+    # to ensure we always have p1 < p2 < p3       
+    if p2 < p1: p1, p2 = p2, p1
+    if p3 < p1: p1, p3 = p3, p1
+    if p3 < p2: p2, p3 = p3, p2
+    assert p1 < p2 < p3
+    
+    p1a = p1 + 1 if p1 < N1 else 0
+    p2a = p2 + 1 if p2 < N1 else 0
+    p3a = p3 + 1 if p3 < N1 else 0
+    
+    w1, w2 = order[p1], order[p1a]   
+    w3, w4 = order[p2], order[p2a] 
+    w5, w6 = order[p2], order[p2a]     
+    #print (p1, p1a), (p2, p2a)    
+    
+    #print p1, p2, N1, order.shape
+    #w1, w2 = order[p1], order[p1a]
+   
+    #print (p1, (w1, w2)), (p2, (w3, w4))
+    #print (distances[w1, w2], distances[w3, w4]), (distances[w1, w3], distances[w2, w4])
+    d0 = distances[w1, w2] + distances[w3, w4] + distances[w5, w6] # Original distance 
+    d1 = distances[w1, w4] + distances[w2, w6] + distances[w3, w5] - d0
+    d2 = distances[w1, w5] + distances[w2, w4] + distances[w3, w6] - d0
+    d3 = distances[w1, w3] + distances[w2, w5] + distances[w4, w6] - d0
+    d4 = distances[w1, w4] + distances[w2, w5] + distances[w3, w6] - d0 
+        
+    if DEBUG:
+        order1 = order.copy() 
+        if p1a == 0:
+            for i in range((p2+1)//2):
+                order1[p2-i], order1[i] = order1[p2-i], order1[i] 
+        else:
+            order1[p1a:p2+1] = order[p2:p1a-1:-1] # reverse the tour segment between p1 and p2
+        print order, trip2(distances, order)
+        print order1, trip2(distances, order1)
+        print delta
+      
+    return (d1, d2, d3, d4), (p1, p2, p3)     
+
+    
+def reversed_order(order, p1, p2):
+    order1 = np.empty[p2 - p1 + 1]
+    if p1 == 0:
+        for i in xrange(p2 + 1):
+            order1[p2 - i] = order[i] 
+    else:
+        order1[p1:p2+1] = order[p2:p1-1:-1] # reverse the tour segment between p1 and p2
+    
+
+def do3opt_any(N, distances, dist, order):
+    """
+        a p1
+        b p1a
+        c p2
+        d p2a
+        e p3
+        f p3a
+    """
+    
+    assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
+    
+    deltas, (p1, p2, p3), (p1a, p2a, p3a) = calc3opt(N, distances, order, dist)
+    assert all((dist + d > 0) for d in deltas) 
+    orders = [order.copy() for _ in deltas] # make copies
+    
+    # :a d:e c:b f:
+    n = p1a 
+    orders[0][n:n + p3-p2a+1] = order[p2a:p3+1]
+    n += p3-p2a+1
+    orders[0][n:n + p2-p1a+1] = reverse_order(order, p1a, p2)
+    n += p3-p2a+1
+    orders[0][n:N-p3a] = order[p3a:]
+    assert CLOSE(dist+deltas[0], trip2(distances, orders[0]))
+    assert len(set(orders[0])) == len(orders[0]), '%d %d' % (len(set(orders[0])), len(orders[0]))
+    
+    # :a e:d c:b f:
+    n = p1a 
+    orders[1][n:n + p3-p2a+1] = reverse_order(orders[0], p2a, p3)
+    n += p3-p2a+1
+    orders[1][n:n + p2-p1a+1] = order[p1a:p2+1]
+    n += p2-p1a+1
+    orders[1][n:N-p3a] = order[p3a:]
+    assert CLOSE(dist+deltas[1], trip2(distances, orders[1]))
+    
+    # :a c:b e:d f:
+    n = p1a 
+    orders[2][n:n + p2-p1a+1] = order[p1a:p2+1]
+    n += p2-p1a+1
+    orders[2][n:n + p3-p2a+1] = reverse_order(orders[0], p2a, p3)
+    n += p3-p2a+1
+    orders[2][n:N-p3a] = order[p3a:]
+    assert CLOSE(dist+deltas[2], trip2(distances, orders[2]))
+     
+    # :a d:e b:c f:
+    n = p1a 
+    orders[3][n:n + p3-p2a+1] = orders[p2a:p3+1]
+    n += p3-p2a+1
+    orders[3][n:n + p2-p1a+1] = order[p1a:p2+1]
+    n += p2-p1a+1
+    orders[3][n:N-p3a] = order[p3a:]
+    assert CLOSE(dist+deltas[3], trip2(distances, orders[3]))
+  
+    return [dist + d for d in deltas], orders 
+
+    
+def do3opt_best(N, distances, dist, order):
+    # Super inefficient !@#$
+    dists, orders = do3opt_any(N, distances, dist, order)
+    imin = min(list(enumerate(dists)), key=lambda x: x[1])
+    return dists[imin], orders[imin]
     
     
 def search(N, distances, visited, hash_base, dist, order):
@@ -328,7 +478,7 @@ def solve(points):
     
     dist, _, order = optimum_solutions.pop()
     
-    print [x[0] for x in optimum_solutions[-10:]]
+    print 'optimum:', dist, len(optimum_solutions), [x[0] for x in optimum_solutions[-10:]]
     
     return dist, list(order)
     
@@ -395,6 +545,7 @@ def solveIt(inputData):
 
     assert nodeCount == len(points)        
     dist, order = solve(points) 
+    print dist
     print [points[i] for i in order]
         
     # prepare the solution in the specified output format
