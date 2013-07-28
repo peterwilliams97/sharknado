@@ -357,7 +357,7 @@ def calc3opt(N, distances, order, dist_check):
         
     boundary_starts = (p1, p2, p3)
     deltas, boundaries = calc3opt_deltas(N, distances, order, dist_check, boundary_starts)
-    dist1, order1 = do3opt_2(N, distances, dist_check, order, deltas, boundaries)
+    #dist1, order1 = do3opt_2(N, distances, dist_check, order, deltas, boundaries)
     
     return deltas, boundaries     
 
@@ -515,7 +515,37 @@ def do3opt_best(N, distances, dist, order, max_iter):
     #print 'imin:', type(imin), imin
     dist1, order1 = do3_all[imin](N, distances, dist, order, deltas, boundaries)
     return dist1, order1
+
+def do3opt_local(N, distances, dist, order):
     
+    assert len(set(order)) == len(order)
+    best = (0.0, None, None)
+    for p1 in xrange(N - 6):
+        for p2 in xrange(p1+2, N - 4):
+            for p3 in xrange(p2+2, N - 2):
+                boundary_starts = (p1, p2, p3)
+                deltas, boundaries = calc3opt_deltas(N, distances, order, dist, boundary_starts)
+                for d in deltas:
+                    if d < best[0]:
+                        best = d, deltas, boundaries
+    if best[0] < 0.0:                        
+        d, deltas, boundaries = best
+        #print 'best deltas:', deltas        
+        imin = min(list(enumerate(deltas)), key=lambda x: x[1])[0]        
+        dist1, order1 = do3_all[imin](N, distances, dist, order, deltas, boundaries)
+    else:
+        dist1, order1 = dist, order
+    return dist1, order1 
+
+def local_search(N, distances, dist, order):
+    
+    while True:
+        dist1, order1 = do3opt_local(N, distances, dist, order)    
+        assert dist1 <= dist
+        if dist1 == dist:
+            break
+        dist, order = dist1, order1   
+    return dist, order
     
 def search(N, distances, visited, hash_base, dist, order):
     """Search for best solution starting with order"""
@@ -533,7 +563,8 @@ def search(N, distances, visited, hash_base, dist, order):
     
     best = (dist, order)
     
-    print 'search', dist
+    dist0 = dist    
+    #print 'search', dist
     
     no_improvement_count = 0
     counter = count()
@@ -559,7 +590,9 @@ def search(N, distances, visited, hash_base, dist, order):
             visited.add(hsh)        
 
             # Refine candidate solution using local search and neighborhood
-            dist, order = do3opt_best(N, distances, dist, order, MAX_ITER)
+            #dist, order = do3opt_best(N, distances, dist, order, MAX_ITER)
+            #dist, order = do3opt_local(N, distances, dist, order)
+            dist, order = local_search(N, distances, dist, order)
             #if the cost of the candidate is less than cost of current best then replace
             #best with current candidate
             assert dist > 0
@@ -571,15 +604,15 @@ def search(N, distances, visited, hash_base, dist, order):
             #    no_improvement_count +=1    
                        
             i = next(counter)   
-            if i % 1000 == 100:
-                print '$$', neighborhood, no_improvement_count, i
+            #if i % 1000 == 100:
+                #print '$$', neighborhood, no_improvement_count, i
         else: # increment the count as we did not find a local optima
             no_improvement_count +=1        
                 
         #print '**', neighborhood, no_improvement_count, i, best[0]   
         visited.add(hsh)      
 
-    print 'Done search', best    
+    print 'Done search', i, dist0, best    
     return best                
     
 NUM_SOLUTIONS = 40 
