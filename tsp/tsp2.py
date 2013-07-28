@@ -11,6 +11,9 @@ EPSILON = 1e-6
 
 def CLOSE(a, b):
     return abs(a - b) < EPSILON
+ 
+def DIFF(a, b): 
+    return '%s - %s = %s' % (a, b, a -b)    
 
 random.seed(111)
 
@@ -69,8 +72,10 @@ def populate_greedy(N, distances, closest, start):
 
     return trip2(distances, order), order
     
-     
+
+hack_locations = None    
 def precalculate(points): 
+    global hack_locations
     N = len(points)
     locations = np.array(points, dtype=np.float64)
     
@@ -90,9 +95,61 @@ def precalculate(points):
         a.sort(key=lambda j: distances[i, j])
         closest[i, :] = a 
 
-    return N, distances, closest  
+    hack_locations = locations    
+    return N, locations, distances, closest 
 
 
+import matplotlib.pyplot as plt
+
+
+def draw_path(order, boundaries=None):
+
+    if boundaries:
+        (p1, p2, p3), (p1a, p2a, p3a) = boundaries
+        b_dict = { p1:'p1', p1a:'p1a', p2:'p2', p2a:'p2a', p3:'p3', p3a:'p3a'}
+    else: 
+        b_dict = {}
+    
+    locations = hack_locations
+    locations2 = np.zeros(locations.shape)
+    for i in order:
+        locations2[i,:] = locations[order[i],:]
+    
+    print locations
+    print order
+    print locations2
+    
+    x1 = []
+    y1 = []
+    delta = 0.0
+    for i in order:
+        x1.append(locations[i,0] - delta)
+        y1.append(locations[i,1] - delta)
+        delta -= 0.005
+    x1.append(locations[order[0], 0])
+    y1.append(locations[order[0], 1])
+    plt.xlim((-.1, 1.2)) 
+    plt.ylim((-.1, 1.2)) 
+    plt.plot(x1, y1, marker='x', linestyle = '-', color = 'b')
+    for i, o in enumerate(order):
+        plt.text(x1[i], y1[i] + 0.01, '%d %s' % (i, b_dict.get(i, '')))
+    
+ 
+def show_path(order):
+    draw_path(order)
+    plt.show() 
+    
+def show_path2(dist, order, dist1, order1, boundaries):
+    return
+    plt.subplot(211)
+    plt.title('before: %.2f' % dist)
+    draw_path(order, boundaries)
+    plt.subplot(212)
+    plt.title('after: %.2f' % dist1)
+    draw_path(order1, boundaries)
+    plt.show() 
+
+    
 def calc2opt(N, distances, order, dist_check):
     """2-opt
         Reverse [p1:p2] inclusive
@@ -152,7 +209,6 @@ def calc2opt(N, distances, order, dist_check):
         print delta
       
     return delta, p1a, p2 
-    
     
     
 def do2opt_best(N, distances, dist, order, max_iter):
@@ -219,10 +275,9 @@ def do2opt_any(N, distances, dist, order):
     return dist + delta, order1
 
 
-    
 def calc3opt(N, distances, order, dist_check):
-    """-opt
-        Reverse [p1:p2] inclusive
+    """3-opt
+        
     """
 
     assert isinstance(order, np.ndarray), type(order)
@@ -242,6 +297,7 @@ def calc3opt(N, distances, order, dist_check):
     w0, w1, w2 = order[p1b], order[p1], order[p1a]
         
     exclude = set([w0, w1, w2])
+    #exclude.add(order[N1])
      
     while order[p2] in exclude:
         p2 = random.randrange(0, N)
@@ -252,6 +308,7 @@ def calc3opt(N, distances, order, dist_check):
     exclude.add(w3b)
     exclude.add(w3)
     exclude.add(w4)
+   
     
     while order[p3] in exclude:
         p3 = random.randrange(0, N)
@@ -266,46 +323,158 @@ def calc3opt(N, distances, order, dist_check):
     p2a = p2 + 1 if p2 < N1 else 0
     p3a = p3 + 1 if p3 < N1 else 0
     
-    w1, w2 = order[p1], order[p1a]   
-    w3, w4 = order[p2], order[p2a] 
-    w5, w6 = order[p2], order[p2a]     
+    #assert p1 < p1a < p2 < p2a < p3 < p3a, ((p1, p1a), (p2, p2a), (p3, p3a)) 
+    
+    w1, w2 = order[p1], order[p1a]   # a b
+    w3, w4 = order[p2], order[p2a]   # c d  
+    w5, w6 = order[p3], order[p3a]   # e f  
     #print (p1, p1a), (p2, p2a)    
+    
+    ww = (w1, w2, w3, w4, w5, w6)
+    assert len(set(ww)) == len(ww)
     
     #print p1, p2, N1, order.shape
     #w1, w2 = order[p1], order[p1a]
    
     #print (p1, (w1, w2)), (p2, (w3, w4))
     #print (distances[w1, w2], distances[w3, w4]), (distances[w1, w3], distances[w2, w4])
-    d0 = distances[w1, w2] + distances[w3, w4] + distances[w5, w6] # Original distance 
-    d1 = distances[w1, w4] + distances[w2, w6] + distances[w3, w5] - d0
-    d2 = distances[w1, w5] + distances[w2, w4] + distances[w3, w6] - d0
-    d3 = distances[w1, w3] + distances[w2, w5] + distances[w4, w6] - d0
-    d4 = distances[w1, w4] + distances[w2, w5] + distances[w3, w6] - d0 
-        
-    if DEBUG:
-        order1 = order.copy() 
-        if p1a == 0:
-            for i in range((p2+1)//2):
-                order1[p2-i], order1[i] = order1[p2-i], order1[i] 
-        else:
-            order1[p1a:p2+1] = order[p2:p1a-1:-1] # reverse the tour segment between p1 and p2
-        print order, trip2(distances, order)
-        print order1, trip2(distances, order1)
-        print delta
-      
-    return (d1, d2, d3, d4), (p1, p2, p3)     
+    bf = distances[w1, w2] + distances[w3, w4] + distances[w5, w6] # Original distance 
+    d0 = distances[w1, w4] + distances[w2, w6] + distances[w3, w5] - bf
+    d1 = distances[w1, w5] + distances[w2, w4] + distances[w3, w6] - bf
+    d2 = distances[w1, w3] + distances[w2, w5] + distances[w4, w6] - bf
+    d3 = distances[w1, w4] + distances[w2, w5] + distances[w3, w6] - bf 
+          
+    deltas = (d0, d1, d2, d3)
+    boundaries = (p1, p2, p3), (p1a, p2a, p3a)
+    
+    if DEBUG or True:
+       print 'deltas:', deltas
+       print 'boundaries:', boundaries
+       print 'w:', (w1, w2), (w3, w4), (w5, w6) 
+       print 'bf:', bf, (distances[w1, w2], distances[w3, w4], distances[w5, w6])
+       print 'd2:', d2 + bf, (distances[w1, w3], distances[w2, w5], distances[w4, w6]), d2
+       #show_path(order)
+       dist1, order1 = do3opt_2(N, distances, dist_check, order, deltas, boundaries)
+    
+    return deltas, boundaries     
 
     
-def reversed_order(order, p1, p2):
-    order1 = np.empty[p2 - p1 + 1]
+def reverse_order(order, p1, p2):
+    """Return order[p1:p2+1] reversed"""
+    order1 = np.empty(p2 - p1 + 1)
+    print 'reverse_order:', order.shape, p1, p2, order1.shape
     if p1 == 0:
         for i in xrange(p2 + 1):
             order1[p2 - i] = order[i] 
     else:
-        order1[p1:p2+1] = order[p2:p1-1:-1] # reverse the tour segment between p1 and p2
-    
+        order1[:] = order[p2:p1-1:-1] # reverse the tour segment between p1 and p2
+    return order1
 
-def do3opt_any(N, distances, dist, order):
+#        a p1
+#        b p1a
+#        c p2
+#        d p2a
+#        e p3
+#        f p3a    
+
+def do3opt_0(N, distances, dist, order, deltas, boundaries):        
+    (p1, p2, p3), (p1a, p2a, p3a) = boundaries
+    order1 = order.copy()
+    
+    print 'do3opt_0:', N, (p1, p2, p3), (p1a, p2a, p3a)
+    
+    # :a d:e c:b f:
+    print ':%d %d:%d %d:%d %d:' % (p1, p2a, p3, p2, p1a, p3a)
+    n = p1a 
+    order1[n:n + p3-p2a+1] = order[p2a:p3+1]
+    n += p3-p2a+1
+    order1[n:n + p2-p1a+1] = reverse_order(order, p1a, p2)
+    n += p2-p1a+1
+    if n < N and p3a != 0:
+        print n, N, p3a
+        order1[n:N] = order[p3a:]
+    
+    print np.arange(N), 'indexes'
+    print order, trip2(distances, order)
+    print order1, trip2(distances, order1)
+    dist1 = dist + deltas[0]
+    show_path2(dist, order, dist1, order1, boundaries)
+    assert CLOSE(dist1, trip2(distances, order1)), DIFF(dist1, trip2(distances, order1)) 
+    assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))
+    return dist1, order1 
+    
+def do3opt_1(N, distances, dist, order, deltas, boundaries):        
+    (p1, p2, p3), (p1a, p2a, p3a) = boundaries
+    order1 = order.copy()
+    
+    # :a e:d c:b f:
+    n = p1a 
+    order1[n:n + p3-p2a+1] = reverse_order(order, p2a, p3)
+    n += p3-p2a+1
+    order1[n:n + p2-p1a+1] = order[p1a:p2+1]
+    n += p2-p1a+1
+    print n, N
+    if n < N:
+        order1[n:N] = order[p3a:]
+    
+    print np.arange(N), 'indexes'
+    print order, trip2(distances, order)
+    print order1, trip2(distances, order1)
+    dist1 = dist + deltas[1]
+    show_path2(dist, order, dist1, order1, boundaries)
+    assert CLOSE(dist1, trip2(distances, order1)), DIFF(dist1, trip2(distances, order1)) 
+    assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))
+    return dist1, order1 
+    
+def do3opt_2(N, distances, dist, order, deltas, boundaries):       
+    (p1, p2, p3), (p1a, p2a, p3a) = boundaries
+    order1 = order.copy()
+    print 'do3opt_2:', N, (p1, p2, p3), (p1a, p2a, p3a)
+    
+    # :a c:b e:d f:
+    print ':%d %d:%d %d:%d %d:' % (p1, p2, p1a, p3, p2a, p3a)
+    n = p1a 
+    order1[n:n + p2-p1a+1] = reverse_order(order, p1a, p2) 
+    n += p2-p1a+1
+    order1[n:n + p3-p2a+1] = reverse_order(order, p2a, p3)
+    n += p3-p2a+1
+    if n < N:
+        order1[n:N] = order[p3a:]
+    
+    print np.arange(N), 'indexes'
+    print order, trip2(distances, order)
+    print order1, trip2(distances, order1)
+    dist1 = dist + deltas[2]
+    show_path2(dist, order, dist1, order1, boundaries)
+    assert CLOSE(dist1, trip2(distances, order1)), DIFF(dist1, trip2(distances, order1)) 
+    assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))
+    return dist1, order1 
+
+def do3opt_3(N, distances, dist, order, deltas, boundaries):        
+    (p1, p2, p3), (p1a, p2a, p3a) = boundaries
+    order1 = order.copy()
+    
+    # :a d:e b:c f:
+    n = p1a 
+    order1[n:n + p3-p2a+1] = order[p2a:p3+1]
+    n += p3-p2a+1
+    order1[n:n + p2-p1a+1] = order[p1a:p2+1]
+    n += p2-p1a+1
+    if n < N:
+        order1[n:N] = order[p3a:]
+    
+    print np.arange(N), 'indexes'
+    print order, trip2(distances, order)
+    print order1, trip2(distances, order1)
+    dist1 = dist + deltas[3]
+    show_path2(dist, order, dist1, order1, boundaries)
+    assert CLOSE(dist1, trip2(distances, order1)), DIFF(dist1, trip2(distances, order1)) 
+    assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))
+    return dist1, order1  
+    
+do3_all = [do3opt_0, do3opt_1, do3opt_2, do3opt_3]    
+    
+def do3opt_any(N, distances, dist, order, selection):
     """
         a p1
         b p1a
@@ -317,55 +486,28 @@ def do3opt_any(N, distances, dist, order):
     
     assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
     
-    deltas, (p1, p2, p3), (p1a, p2a, p3a) = calc3opt(N, distances, order, dist)
+    deltas, boundaries = calc3opt(N, distances, order, dist)
     assert all((dist + d > 0) for d in deltas) 
-    orders = [order.copy() for _ in deltas] # make copies
     
-    # :a d:e c:b f:
-    n = p1a 
-    orders[0][n:n + p3-p2a+1] = order[p2a:p3+1]
-    n += p3-p2a+1
-    orders[0][n:n + p2-p1a+1] = reverse_order(order, p1a, p2)
-    n += p3-p2a+1
-    orders[0][n:N-p3a] = order[p3a:]
-    assert CLOSE(dist+deltas[0], trip2(distances, orders[0]))
-    assert len(set(orders[0])) == len(orders[0]), '%d %d' % (len(set(orders[0])), len(orders[0]))
-    
-    # :a e:d c:b f:
-    n = p1a 
-    orders[1][n:n + p3-p2a+1] = reverse_order(orders[0], p2a, p3)
-    n += p3-p2a+1
-    orders[1][n:n + p2-p1a+1] = order[p1a:p2+1]
-    n += p2-p1a+1
-    orders[1][n:N-p3a] = order[p3a:]
-    assert CLOSE(dist+deltas[1], trip2(distances, orders[1]))
-    
-    # :a c:b e:d f:
-    n = p1a 
-    orders[2][n:n + p2-p1a+1] = order[p1a:p2+1]
-    n += p2-p1a+1
-    orders[2][n:n + p3-p2a+1] = reverse_order(orders[0], p2a, p3)
-    n += p3-p2a+1
-    orders[2][n:N-p3a] = order[p3a:]
-    assert CLOSE(dist+deltas[2], trip2(distances, orders[2]))
-     
-    # :a d:e b:c f:
-    n = p1a 
-    orders[3][n:n + p3-p2a+1] = orders[p2a:p3+1]
-    n += p3-p2a+1
-    orders[3][n:n + p2-p1a+1] = order[p1a:p2+1]
-    n += p2-p1a+1
-    orders[3][n:N-p3a] = order[p3a:]
-    assert CLOSE(dist+deltas[3], trip2(distances, orders[3]))
-  
-    return [dist + d for d in deltas], orders 
+    return ([dist + d for d in deltas], 
+            [do3(N, distances, dist, order, deltas, boundaries) 
+                for do3 in do3_all]) 
 
     
-def do3opt_best(N, distances, dist, order):
+def do3opt_best(N, distances, dist, order, max_iter):
+    
+    assert len(set(order)) == len(order)
+    for _ in xrange(max_iter):
+        deltas, boundaries = calc3opt(N, distances, order, dist)
+        print 'deltas:', deltas
+        if any(d < 0 for d in deltas):
+            break
+    print 'best deltas:', deltas        
+    imin = min(list(enumerate(deltas)), key=lambda x: x[1])[0]        
     # Super inefficient !@#$
-    dists, orders = do3opt_any(N, distances, dist, order)
-    imin = min(list(enumerate(dists)), key=lambda x: x[1])
-    return dists[imin], orders[imin]
+    print 'imin:', type(imin), imin
+    dist1, order1 = do3_all[imin](N, distances, dist, order, deltas, boundaries)
+    return dist1, order1
     
     
 def search(N, distances, visited, hash_base, dist, order):
@@ -410,7 +552,7 @@ def search(N, distances, visited, hash_base, dist, order):
             visited.add(hsh)        
 
             # Refine candidate solution using local search and neighborhood
-            dist, order = do2opt_best(N, distances, dist, order, MAX_ITER)
+            dist, order = do3opt_best(N, distances, dist, order, MAX_ITER)
             #if the cost of the candidate is less than cost of current best then replace
             #best with current candidate
             assert dist > 0
@@ -439,7 +581,7 @@ MAX_ITER = 100
 def solve(points):
     """Return traversal order of points that minimizes distance travelled"""
     
-    N, distances, closest = precalculate(points)
+    N, locations, distances, closest = precalculate(points)
         
     hash_base = np.random.randint(10**4, 10**6, N)
     visited = set()
