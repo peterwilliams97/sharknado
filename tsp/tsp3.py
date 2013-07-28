@@ -151,6 +151,17 @@ def show_path2(dist, order, dist1, order1, boundaries):
     draw_path(order1, boundaries)
     plt.show() 
 
+
+def calc2opt_delta(N, distances, order, dist_check, boundary_starts):
+    N1 = N - 1
+    p1, p2 = boundary_starts
+
+    p1a = p1 + 1 if p1 < N1 else 0
+    p2a = p2 + 1 if p2 < N1 else 0
+    w1, w2 = order[p1], order[p1a]   # a b
+    w3, w4 = order[p2], order[p2a]   # c d 
+    delta = (distances[w1, w3] + distances[w2, w4]) - (distances[w1, w2] + distances[w3, w4])
+    return delta, ((p1, p2), (p1a, p2a)) 
     
 def calc2opt(N, distances, order, dist_check):
     """2-opt
@@ -210,14 +221,14 @@ def calc2opt(N, distances, order, dist_check):
         print order1, trip2(distances, order1)
         print delta
       
-    return delta, p1a, p2 
-    
-    
-def do2opt_best(N, distances, dist, order, max_iter):
+    return delta, (p1a, p2) 
+
+
+def _do2opt_best(N, distances, dist, order, max_iter):
 
     assert len(set(order)) == len(order)
     for _ in xrange(max_iter):
-        delta, p1, p2 = calc2opt(N, distances, order, dist)
+        delta, (p1, p2) = calc2opt(N, distances, order, dist)
         if delta < 0:
             break
     
@@ -258,13 +269,60 @@ def do2opt_best(N, distances, dist, order, max_iter):
         (dist + delta - trip2(distances, order1))/EPSILON)
     return dist + delta, order1 
 
+
+def reverse_order(order, p1, p2):
+    """Return order[p1:p2+1] reversed"""
+    order1 = np.empty(p2 - p1 + 1)
+    #print 'reverse_order:', order.shape, p1, p2, order1.shape
+    if p1 == 0:
+        for i in xrange(p2 + 1):
+            order1[p2 - i] = order[i] 
+    else:
+        order1[:] = order[p2:p1-1:-1] # reverse the tour segment between p1 and p2
+    return order1    
+    
+def do2opt(N, distances, dist, order, delta, boundaries): 
+    (p1, p2), (p1a, p2a) = boundaries
+    order1 = order.copy() # make a copy
+    
+    #print (p1, p2), N, order
+    #t = reverse_order(order, p1, p2)
+    #print order1[p1:p2+1].shape, t.shape
+    order1[p1a:p2+1] = reverse_order(order, p1a, p2)
+    dist1 = dist + delta
+    show_path2(dist, order, dist1, order1, boundaries)
+    assert CLOSE(dist1, trip2(distances, order1)), DIFF(dist1, trip2(distances, order1)) 
+    assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))     
+    return dist + delta, order1  
     
 def do2opt_any(N, distances, dist, order):
     
     assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
     
-    delta, p1, p2 = calc2opt(N, distances, order, dist)
+    p1, p2 = random.randrange(0, N), random.randrange(0, N)
+    # do this so as not to overshoot tour boundaries
+ 
+    N1 = N - 1
+    p1b = p1 - 1 if p1 > 0 else N1 
+    p1a = p1 + 1 if p1 < N1 else 0
+    w0, w1, w2 = order[p1b], order[p1], order[p1a]
+        
+    exclude = set([w0, w1, w2])
+     
+    while order[p2] in exclude:
+        p2 = random.randrange(0, N)
+        
+    # to ensure we always have p1<p2        
+    if p2 < p1:
+        p1, p2 = p2, p1
+
+
+    delta, boundaries = calc2opt_delta(N, distances, order, dist, (p1, p2))
     assert dist + delta > 0
+    
+    #print '%', boundaries
+    return do2opt(N, distances, dist, order, delta, boundaries)
+    
     order1 = order.copy() # make a copy
     if p1 == 0:
         for i in range((p2+1)//2):
@@ -307,7 +365,6 @@ def calc3opt_deltas(N, distances, order, dist_check, boundary_starts):
        print 'bf:', bf, (distances[w1, w2], distances[w3, w4], distances[w5, w6])
        print 'd2:', d2 + bf, (distances[w1, w3], distances[w2, w5], distances[w4, w6]), d2
        #show_path(order)
-      
 
     return deltas, ((p1, p2, p3), (p1a, p2a, p3a))  
     
@@ -362,16 +419,7 @@ def calc3opt(N, distances, order, dist_check):
     return deltas, boundaries     
 
     
-def reverse_order(order, p1, p2):
-    """Return order[p1:p2+1] reversed"""
-    order1 = np.empty(p2 - p1 + 1)
-    #print 'reverse_order:', order.shape, p1, p2, order1.shape
-    if p1 == 0:
-        for i in xrange(p2 + 1):
-            order1[p2 - i] = order[i] 
-    else:
-        order1[:] = order[p2:p1-1:-1] # reverse the tour segment between p1 and p2
-    return order1
+1
 
 #        a p1
 #        b p1a
@@ -520,6 +568,14 @@ def do3opt_local(N, distances, dist, order):
     
     assert len(set(order)) == len(order)
     best = (0.0, None, None)
+    
+    for p1 in xrange(N - 4):
+        for p2 in xrange(p1+2, N - 2):
+            boundary_starts = (p1, p2)
+            delta, boundaries = calc2opt_delta(N, distances, order, dist, boundary_starts)
+            if delta < best[0]:
+                best = delta, boundaries
+    
     for p1 in xrange(N - 6):
         for p2 in xrange(p1+2, N - 4):
             for p3 in xrange(p2+2, N - 2):
@@ -528,11 +584,18 @@ def do3opt_local(N, distances, dist, order):
                 for d in deltas:
                     if d < best[0]:
                         best = d, deltas, boundaries
-    if best[0] < 0.0:                        
-        d, deltas, boundaries = best
-        #print 'best deltas:', deltas        
-        imin = min(list(enumerate(deltas)), key=lambda x: x[1])[0]        
-        dist1, order1 = do3_all[imin](N, distances, dist, order, deltas, boundaries)
+                        
+    #print 'best:', best                    
+    if best[0] < 0.0:
+        if len(best) == 2: # 2-opt
+            delta, boundaries = best
+            #print '$', boundaries
+            dist1, order1 = do2opt(N, distances, dist, order, delta, boundaries)
+        elif len(best) == 3: # 3-opt    
+            d, deltas, boundaries = best
+            #print 'best deltas:', deltas        
+            imin = min(list(enumerate(deltas)), key=lambda x: x[1])[0]        
+            dist1, order1 = do3_all[imin](N, distances, dist, order, deltas, boundaries)
     else:
         dist1, order1 = dist, order
     return dist1, order1 
@@ -637,7 +700,7 @@ def solve(points):
         assert len(set(order)) == len(order), start
         assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
         
-        dist, order = do2opt_best(N, distances, dist, order, MAX_ITER)
+        dist, order = local_search(N, distances, dist, order)
         assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
         assert dist > 0
                        
