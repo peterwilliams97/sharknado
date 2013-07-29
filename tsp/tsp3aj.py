@@ -6,6 +6,8 @@ import numpy as np
 from itertools import count
 from utils import SortedDeque
 
+from numba import autojit, jit, double
+
 random.seed(111)
 
 DEBUG = False
@@ -19,6 +21,7 @@ def DIFF(a, b):
 
 random.seed(111)
 
+@autojit
 def length(point1, point2):
     return np.hypot(point1, point2)
     #return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
@@ -169,6 +172,8 @@ def show_path2(dist, order, dist1, order1, boundaries):
     plt.show() 
 
 
+    
+@autojit
 def calc2opt_delta(N, distances, order, dist_check, boundary_starts):
     N1 = N - 1
     p1, p2 = boundary_starts
@@ -351,7 +356,7 @@ def do2opt_any(N, distances, dist, order):
     assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))     
     return dist + delta, order1
 
-
+@autojit
 def calc3opt_deltas(N, distances, order, dist_check, boundary_starts):    
     N1 = N - 1
     (p1, p2, p3) = boundary_starts
@@ -364,8 +369,8 @@ def calc3opt_deltas(N, distances, order, dist_check, boundary_starts):
     w3, w4 = order[p2], order[p2a]   # c d  
     w5, w6 = order[p3], order[p3a]   # e f  
 
-    ww = (w1, w2, w3, w4, w5, w6)
-    assert len(set(ww)) == len(ww)
+    #ww = (w1, w2, w3, w4, w5, w6)
+    #assert len(set(ww)) == len(ww)
     
     bf = distances[w1, w2] + distances[w3, w4] + distances[w5, w6] # Original distance 
     d0 = distances[w1, w4] + distances[w2, w6] + distances[w3, w5] - bf
@@ -375,13 +380,13 @@ def calc3opt_deltas(N, distances, order, dist_check, boundary_starts):
    
     deltas = (d0, d1, d2, d3)
     
-    if DEBUG:
-       print 'deltas:', deltas
-       print 'boundaries:', ((p1, p2, p3), (p1a, p2a, p3a))
-       print 'w:', (w1, w2), (w3, w4), (w5, w6) 
-       print 'bf:', bf, (distances[w1, w2], distances[w3, w4], distances[w5, w6])
-       print 'd2:', d2 + bf, (distances[w1, w3], distances[w2, w5], distances[w4, w6]), d2
-       #show_path(order)
+    #if DEBUG:
+    #   print 'deltas:', deltas
+    #   print 'boundaries:', ((p1, p2, p3), (p1a, p2a, p3a))
+    #   print 'w:', (w1, w2), (w3, w4), (w5, w6) 
+    #   print 'bf:', bf, (distances[w1, w2], distances[w3, w4], distances[w5, w6])
+    #   print 'd2:', d2 + bf, (distances[w1, w3], distances[w2, w5], distances[w4, w6]), d2
+    #   #show_path(order)
 
     return deltas, ((p1, p2, p3), (p1a, p2a, p3a))  
     
@@ -581,9 +586,10 @@ def do3opt_best(N, distances, dist, order, max_iter):
     dist1, order1 = do3_all[imin](N, distances, dist, order, deltas, boundaries)
     return dist1, order1
 
+
 def do3opt_local(N, distances, dist, order):
     
-    assert len(set(order)) == len(order)
+    #assert len(set(order)) == len(order)
     best = (0.0, None, None)
     
     for p1 in xrange(N - 4):
@@ -601,7 +607,8 @@ def do3opt_local(N, distances, dist, order):
                 for d in deltas:
                     if d < best[0] - EPSILON:
                         best = d, deltas, boundaries
-                        
+    
+    dist1, order1 = dist, order
     #print 'best:', best                    
     if best[0] < 0.0:
         if len(best) == 2: # 2-opt
@@ -610,11 +617,15 @@ def do3opt_local(N, distances, dist, order):
             dist1, order1 = do2opt(N, distances, dist, order, delta, boundaries)
         elif len(best) == 3: # 3-opt    
             d, deltas, boundaries = best
-            #print 'best deltas:', deltas        
-            imin = min(list(enumerate(deltas)), key=lambda x: x[1])[0]        
+            #print 'best deltas:', deltas
+            #imin = min(list(enumerate(deltas)), key=lambda x: x[1])[0] 
+            imin = 0
+            for i in (1, 2, 3):
+                if deltas[i] < deltas[imin]:
+                    imin = i
+                   
             dist1, order1 = do3_all[imin](N, distances, dist, order, deltas, boundaries)
-    else:
-        dist1, order1 = dist, order
+        
     return dist1, order1 
 
 def local_search(N, distances, dist, order):
@@ -742,6 +753,8 @@ def solve(points):
             optimum_solutions.append((dist, hsh, order))
             print 'best:', optimum_solutions[-1][0]
             
+    print 'Done greedy'
+    
     for dist, hsh, order in outer_solutions:
         
         hsh = np.dot(hash_base, order)   
