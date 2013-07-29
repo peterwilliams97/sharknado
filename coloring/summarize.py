@@ -61,3 +61,11 @@ for name, results in all_results.items():
             f.write('   %s,\n' % repr((n, score, X)))
         f.write(']\n\n')
    
+with open('_summary.py', 'wt') as f:
+    for name, results in all_results.items():
+        if not results:
+            continue
+        i, optimum, n, score, count, hsh, X = results[0]
+        f.write('%s = %s\n' % (name, X)) 
+           
+       
