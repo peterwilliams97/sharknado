@@ -102,6 +102,10 @@ def precalculate(points):
     
     
 def normalize(N, order):
+    """For any closed tour there are 2N orders
+        N rotations x (forward|reverse)
+        We choose one of them here
+    """    
     for i in xrange(N):
         if order[i] == 0:
             break
@@ -111,7 +115,6 @@ def normalize(N, order):
     else:
         order[0] = 0
         order[1:] = order1[1:][::-1]
-     
     assert order[0] == 0, '%d: %s' % (i, order)    
 
 
@@ -715,9 +718,16 @@ def solve(points):
         if start % 3 > 0:
             random.shuffle(order)
             dist = trip2(distances, order)
+        
+        normalize(N, order)
+         
         assert len(set(order)) == len(order), start
         assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
         
+        hsh = np.dot(hash_base, order)   
+        if hsh in visited:   # Done this local search?
+            continue
+        visited.add(hsh)     
         dist, order = local_search(N, distances, dist, order)
         assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
         assert dist > 0
@@ -725,7 +735,7 @@ def solve(points):
         assert len(set(order)) == len(order), start
         hsh = np.dot(hash_base, order)
         #print hash_base.shape, order.shape, hsh.shape
-        assert hsh not in visited
+        #assert hsh not in visited
         visited.add(hsh)    
         outer_solutions.append((dist, hsh, order))
         if not optimum_solutions or dist < optimum_solutions[-1][0]:
@@ -733,7 +743,10 @@ def solve(points):
             print 'best:', optimum_solutions[-1][0]
             
     for dist, hsh, order in outer_solutions:
-                       
+        
+        hsh = np.dot(hash_base, order)   
+        if hsh in visited:   # Done this local search?
+            continue
         dist, order = search(N, distances, visited, hash_base, dist, order)
         assert dist > 0
         if dist < optimum_solutions[-1][0]:
