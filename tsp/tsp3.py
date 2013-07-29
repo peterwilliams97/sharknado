@@ -99,6 +99,20 @@ def precalculate(points):
 
     hack_locations = locations    
     return N, locations, distances, closest 
+    
+    
+def normalize(N, order):
+    for i in xrange(N):
+        if order[i] == 0:
+            break
+    order1 = np.roll(order, -i) 
+    if order1[1] < order1[-1]:
+        order[:] = order1[:]
+    else:
+        order[0] = 0
+        order[1:] = order1[1:][::-1]
+     
+    assert order[0] == 0, '%d: %s' % (i, order)    
 
 
 import matplotlib.pyplot as plt
@@ -573,7 +587,7 @@ def do3opt_local(N, distances, dist, order):
         for p2 in xrange(p1+2, N - 2):
             boundary_starts = (p1, p2)
             delta, boundaries = calc2opt_delta(N, distances, order, dist, boundary_starts)
-            if delta < best[0]:
+            if delta < best[0] - EPSILON:
                 best = delta, boundaries
     
     for p1 in xrange(N - 6):
@@ -582,7 +596,7 @@ def do3opt_local(N, distances, dist, order):
                 boundary_starts = (p1, p2, p3)
                 deltas, boundaries = calc3opt_deltas(N, distances, order, dist, boundary_starts)
                 for d in deltas:
-                    if d < best[0]:
+                    if d < best[0] - EPSILON:
                         best = d, deltas, boundaries
                         
     #print 'best:', best                    
@@ -602,12 +616,16 @@ def do3opt_local(N, distances, dist, order):
 
 def local_search(N, distances, dist, order):
     
+    changed = False
     while True:
         dist1, order1 = do3opt_local(N, distances, dist, order)    
         assert dist1 <= dist
         if dist1 == dist:
             break
-        dist, order = dist1, order1   
+        dist, order = dist1, order1 
+        changed = True
+    if changed:
+        normalize(N, order)
     return dist, order
     
 def search(N, distances, visited, hash_base, dist, order):
