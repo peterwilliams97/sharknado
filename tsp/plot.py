@@ -1,4 +1,4 @@
-from history01 import saved_solutions, saved_points
+from history01 import VERSION, saved_solutions, saved_points
 import sys, os
 import igraph
 #import  cairo
@@ -17,7 +17,7 @@ except:
 def main():
     for path in saved_solutions:
         name = os.path.split(path)[-1]
-        png_path = os.path.join(RESULTS_DIR, name + '.png')
+        png_path = os.path.join(RESULTS_DIR, '%s_%02d.png' % (name, VERSION))
         dist, order = saved_solutions[path]
         points = saved_points[path]
         x, y = zip(*points) 
