@@ -70,12 +70,12 @@ def trip2(locations, sparse_distances, order):
         if j not in sparse_distances[i]:
             dxy = locations[i] - locations[j] 
             sparse_distances[i][j] = np.sqrt(dxy[0] ** 2 + dxy[1] ** 2)
-        dist += distances[i, j]  
+        dist += sparse_distances[i][j]  
         ii = jj    
     return dist
     
     
-def populate_greedy(N, sparse_distances, closest, start):
+def populate_greedy(N, locations, sparse_distances, closest, start):
    
     print 'populate_greedy', N,  closest.shape, start
     assert 0 <= start < N
@@ -91,14 +91,16 @@ def populate_greedy(N, sparse_distances, closest, start):
         if not (all_nodes - nodes):
             #print 'i=%d' % i
             break
-        for j in closest[order[i]]:
+        for j in closest[order[i],:]:
             if j not in nodes:
                 order[i + 1] = j
                 nodes.add(j)
                 i += 1
                 break
         else:
-            print 'What', closest[order[i],:]
+            cls = [int(ii) for ii in closest[order[i],:]]
+            print '@~What %d %d\n%s\n%s\n%s\n%s' % (i, N, order, cls,
+                    sorted(set(order)), sorted(set(cls)))
             exit()
     #print order            
     assert len(set(order)) == len(order), '%d %d, %d'  % (len(set(order)), len(order), j)
@@ -120,7 +122,7 @@ def load_object(path, default=None):
         return default    
 #hack_locations = None 
 
-MAX_CLOSEST = 20
+MAX_CLOSEST = 50
 
 #@autojit
 
@@ -186,10 +188,7 @@ def make_submaps(N, locations):
     for ix in range(N_SUBMAP):
         x0 = xmin + ix * xd 
         x1 = xmin + (ix + 1) * xd 
-        x0n = max(xmin + (ix - 0.5) * xd, xmin) 
-        x1n = min(xmin + (ix + 1.5) * xd, xmax)
         indexes_x = [i for i in xrange(N) if x0 <= locations[i, 0] < x1]
-        indexes_x_n = [i for i in xrange(N) if x0n <= locations[i, 0] < x1n]
         for iy in range(N_SUBMAP):
             y0 = ymin + iy * yd 
             y1 = ymin + (iy + 1) * yd 
@@ -198,8 +197,11 @@ def make_submaps(N, locations):
                 continue
             dd = 0.0
             for dd in range(N_SUBMAP):
+                x0n = max(xmin + (ix - 0.5 - dd) * xd, xmin) 
+                x1n = min(xmin + (ix + 1.5 + dd) * xd, xmax)
                 y0n = max(ymin + (iy - 0.5 - dd) * yd, ymin) 
                 y1n = min(ymin + (iy + 1.5 + dd) * yd, ymax)
+                indexes_x_n = [i for i in xrange(N) if x0n <= locations[i, 0] < x1n]
                 indexes_xy_n = [i for i in  indexes_x_n if y0n <= locations[i, 1] < y1n]
                 if len(indexes_xy_n) > M1:
                     break
@@ -959,7 +961,7 @@ def solve(points):
     
     for start in xrange(N):
         print '$%d' % start,
-        dist, order = populate_greedy(N, sparse_distances, closest, start)
+        dist, order = populate_greedy(N, locations, sparse_distances, closest, start)
         #if start % 3 > 0:
         #    random.shuffle(order)
         #    dist = trip2(distances, order)
@@ -967,7 +969,9 @@ def solve(points):
         normalize(N, order)
          
         assert len(set(order)) == len(order), start
-        assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
+        assert CLOSE(dist, trip2(locations, sparse_distances, order)), DIFF(dist, trip2(locations, sparse_distances, order))
+        
+        
         
         hsh = np.dot(hash_base, order)   
         if hsh in visited:   # Done this local search?
@@ -1110,9 +1114,9 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-path_list.reverse()
+#path_list.reverse()
 
-for path in path_list[2:]:
+for path in path_list:
     print '-' * 80
     print path
     solution = solveIt(loadInputData(path), path)
