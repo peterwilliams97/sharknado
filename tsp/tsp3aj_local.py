@@ -8,6 +8,8 @@ from utils import SortedDeque
 
 from numba import autojit, jit, double
 
+VERSION = 1
+
 random.seed(111)
 
 DEBUG = False
@@ -171,7 +173,16 @@ def show_path2(dist, order, dist1, order1, boundaries):
     draw_path(order1, boundaries)
     plt.show() 
 
-
+HISTORY = 'history%02d.py'   
+saved_points = {}    
+saved_solutions = {}    
+def save_solution(path, points, dist, order):
+    saved_points[path] = points
+    saved_solutions[path] = (dist, order) 
+    with open(HISTORY % VERSION, 'wt') as f:
+        f.write('#VERSION=%d\n' % VERSION)
+        f.write('saved_solutions = %s\n' % repr(saved_solutions))
+        f.write('saved_points = %s\n' % repr(saved_points))
     
 @autojit
 def calc2opt_delta(N, distances, order, dist_check, boundary_starts):
@@ -588,27 +599,65 @@ def do3opt_best(N, distances, dist, order, max_iter):
     dist1, order1 = do3_all[imin](N, distances, dist, order, deltas, boundaries)
     return dist1, order1
 
-
-def do3opt_local(N, distances, dist, order):
+MAX_CLOSEST = 5
+def do3opt_local(N, distances, closest, dist, order):
     
     #assert len(set(order)) == len(order)
     best = (0.0, None, None)
+    M = min(N, MAX_CLOSEST)
     
+    #print 'N M', N, M
     for p1 in xrange(N - 4):
-        for p2 in xrange(p1+2, N - 2):
+        # for p2 in xrange(p1+2, N - 2):
+        n2 = 0
+        for p2 in closest[p1]:
+            if p2 < p1 + 2: continue
+            if n2 >= M: break
+            n2 += 1
             boundary_starts = (p1, p2)
             delta, boundaries = calc2opt_delta(N, distances, order, dist, boundary_starts)
             if delta < best[0] - EPSILON:
                 best = delta, boundaries
+            #print (n2-1, p2),     
+    #print 'n2:', n2            
     
     for p1 in xrange(N - 6):
-        for p2 in xrange(p1+2, N - 4):
-            for p3 in xrange(p2+2, N - 2):
+        #for p2 in xrange(p1+2, N - 4):
+        n2 = 0
+        for p2 in closest[p1]:
+            if p2 < p1 + 2: continue
+            if n2 >= M: break
+            n2 += 1
+            #for p3 in xrange(p2+2, N - 2):
+            n3_1 = 0
+            done_starts = set()
+            for p3 in closest[p1]:
+                if p3 < p2 + 2: continue
+                if n3_1 >= M: break
+                
                 boundary_starts = (p1, p2, p3)
+                done_starts.add(boundary_starts)
+                n3_1 += 1
+                
                 deltas, boundaries = calc3opt_deltas(N, distances, order, dist, boundary_starts)
                 for d in deltas:
                     if d < best[0] - EPSILON:
                         best = d, deltas, boundaries
+                #print (n3_1-1, p3),        
+            n3_2 = 0
+            for p3 in closest[p2]:
+                if p3 < p2 + 2: continue
+                if n3_2 >= M: break
+                boundary_starts = (p1, p2, p3)
+                if boundary_starts in done_starts: continue
+                done_starts.add(boundary_starts)
+                n3_2 += 1
+                
+                deltas, boundaries = calc3opt_deltas(N, distances, order, dist, boundary_starts)
+                for d in deltas:
+                    if d < best[0] - EPSILON:
+                        best = d, deltas, boundaries            
+    #print 'n23:', n2, n3_1, n3_2 
     
     dist1, order1 = dist, order
     #print 'best:', best                    
@@ -631,11 +680,11 @@ def do3opt_local(N, distances, dist, order):
         
     return dist1, order1 
 
-def local_search(N, distances, dist, order):
+def local_search(N, distances, closest, dist, order):
     
     changed = False
     while True:
-        dist1, order1 = do3opt_local(N, distances, dist, order)    
+        dist1, order1 = do3opt_local(N, distances, closest, dist, order)    
         assert dist1 <= dist
         if dist1 == dist:
             break
@@ -690,7 +739,7 @@ def search(N, distances, visited, hash_base, dist, order):
             # Refine candidate solution using local search and neighborhood
             #dist, order = do3opt_best(N, distances, dist, order, MAX_ITER)
             #dist, order = do3opt_local(N, distances, dist, order)
-            dist, order = local_search(N, distances, dist, order)
+            dist, order = local_search(N, distances, closest, dist, order)
             #if the cost of the candidate is less than cost of current best then replace
             #best with current candidate
             assert dist > 0
@@ -728,10 +777,11 @@ def solve(points):
     optimum_solutions = []
     
     for start in xrange(N):
-        dist, order = populate_greedy(N, distances, closest, start//3)
-        if start % 3 > 0:
-            random.shuffle(order)
-            dist = trip2(distances, order)
+        print '$%d' % start,
+        dist, order = populate_greedy(N, distances, closest, start)
+        #if start % 3 > 0:
+        #    random.shuffle(order)
+        #    dist = trip2(distances, order)
         
         normalize(N, order)
          
@@ -742,7 +792,7 @@ def solve(points):
         if hsh in visited:   # Done this local search?
             continue
         visited.add(hsh)     
-        dist, order = local_search(N, distances, dist, order)
+        dist, order = local_search(N, distances, closest, dist, order)
         assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
         assert dist > 0
                        
@@ -756,7 +806,7 @@ def solve(points):
             optimum_solutions.append((dist, hsh, order))
             print 'best:', optimum_solutions[-1][0]
             
-    print 'Done greedy'
+    print 'Done greedy', len(outer_solutions), len(optimum_solutions)
     
     for dist, hsh, order in outer_solutions:
         
@@ -767,15 +817,16 @@ def solve(points):
         assert dist > 0
         if dist < optimum_solutions[-1][0]:
             optimum_solutions.append((dist, hsh, order))
+            print 'best:', optimum_solutions[-1][0]
     
-    dist, _, order = optimum_solutions.pop()
+    dist, _, order = optimum_solutions[-1]
     
     print 'optimum:', dist, len(optimum_solutions), [x[0] for x in optimum_solutions[-10:]]
     
     return dist, list(order)
     
     
-def solveIt(inputData):
+def solveIt(inputData, path=None):
     # Modify this code to run your optimization algorithm
 
     # parse the input
@@ -841,6 +892,9 @@ def solveIt(inputData):
     dist, order = solve(points) 
     print dist
     print [points[i] for i in order]
+    
+    if path:
+        save_solution(path, points, dist, order)
         
     # prepare the solution in the specified output format
     outputData = str(dist) + ' ' + str(0) + '\n'
@@ -876,10 +930,10 @@ partIds = ['WdrlJtJq',
 
 path_list = [fileNameLookup[id] for id in partIds]
 
-for path in path_list[:1]:
+for path in path_list:
     print '-' * 80
     print path
-    solution = solveIt(loadInputData(path))
+    solution = solveIt(loadInputData(path), path)
     print solution
     
 
