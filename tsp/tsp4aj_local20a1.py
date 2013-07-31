@@ -110,28 +110,30 @@ def precalculate(points):
     
         locations = np.array(points, dtype=np.float64)
         distances = np.zeros((N, N), dtype=np.float64)
-        
-        start_time = time.time()
-        for i in xrange(N):
-            if i % 1000 == 100:
-                dt = max(0.1, time.time() - start_time)
-                print (i, i/N, dt, i/dt, (N - i)/(i/dt)/3600.0)
-            diff = locations - locations[i]
-            #print diff.shape
-            for j in xrange(N):
-                #print diff[j].shape
-                #print np.sqrt(diff[0] ** 2 + diff[1] ** 2).shape
-                distances[i][j] = np.sqrt(diff[j][0] ** 2 + diff[j][1] ** 2) #;  np.hypot(diff[j]) 
-          
-        print '@@3'  
-        # Ordering of distances, closest first.
         closest = np.zeros((N, N-1), dtype=np.int32)
-        print '@@4'
-        for i in xrange(N):
-            a = range(N)
-            a.sort(key=lambda j: distances[i, j])
-            closest[i, :] = a[1:] 
+        
+        if False: # !@#$
+            start_time = time.time()
+            for i in xrange(N):
+                if i % 1000 == 100:
+                    dt = max(0.1, time.time() - start_time)
+                    print (i, i/N, dt, i/dt, (N - i)/(i/dt)/3600.0)
+                diff = locations - locations[i]
+                #print diff.shape
+                for j in xrange(N):
+                    #print diff[j].shape
+                    #print np.sqrt(diff[0] ** 2 + diff[1] ** 2).shape
+                    distances[i][j] = np.sqrt(diff[j][0] ** 2 + diff[j][1] ** 2) #;  np.hypot(diff[j]) 
+              
+            print '@@3'  
+            # Ordering of distances, closest first.
             
+            print '@@4'
+            for i in xrange(N):
+                a = range(N)
+                a.sort(key=lambda j: distances[i, j])
+                closest[i, :] = a[1:] 
+                
         existing = (N, locations, distances, closest) 
         utils.save_object(ppath, existing)
 
