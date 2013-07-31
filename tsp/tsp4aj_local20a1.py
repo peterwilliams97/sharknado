@@ -6,13 +6,14 @@ import numpy as np
 from itertools import count
 from utils import SortedDeque
 import utils
-import sys
+import sys, time
 
 from numba import autojit, jit, double
 
-VERSION = 7
+# 30 forwards, 31 backwards
+VERSION = 31
 
-MAX_CLOSEST = 50
+MAX_CLOSEST = 20
 MAX_N =  30 * 1000
 DEBUG = False
 EPSILON = 1e-6
@@ -60,7 +61,8 @@ def populate_greedy(N, distances, closest, start):
     order[0] = start
     nodes = set([start])
     while i < N - 1:
-        # print 'i=%d:' % i, all_nodes - nodes, len(nodes)
+        if i % 100 == 1:
+            print 'i=%d,nodes=%d,%d' % (i, len(all_nodes - nodes), len(nodes))
         if not (all_nodes - nodes):
             #print 'i=%d' % i
             break
@@ -84,25 +86,36 @@ def precalculate(points):
     print '@@1'
     
         
-    ppath = 'distances%d_%d.pkl' % (N, VERSION)
+    ppath = 'distances_all%05d.pkl' % N
     print '@@2', ppath
     
     existing = utils.load_object(ppath)
     if existing:
-        print 'loading existing'
         (N2, locations, distances, closest) = existing
+        print 'loading existing'
+        print 'locations:', locations.shape
+        print 'distances:', distances.shape
+        print 'closest:', closest.shape
+        
         assert N2 == N
         assert locations.shape[0] == N
         assert distances.shape[0] == N
+        assert distances.shape[1] == N
         assert closest.shape[0] == N
+        assert closest.shape[1] == N - 1
+        for i in xrange(1, N):
+            for j in xrange(i):
+                assert distances[i, j] > 0.0
     else:
     
         locations = np.array(points, dtype=np.float64)
         distances = np.zeros((N, N), dtype=np.float64)
-    
+        
+        start_time = time.time()
         for i in xrange(N):
-            if i % 1000 == 10:
-                print i,
+            if i % 1000 == 100:
+                dt = max(0.1, time.time() - start_time)
+                print (i, i/N, dt, i/dt, (N - i)/(i/dt)/3600.0)
             diff = locations - locations[i]
             #print diff.shape
             for j in xrange(N):
@@ -968,7 +981,7 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-#path_list.reverse()
+path_list.reverse()
 
 for path in path_list:
     print '-' * 80
