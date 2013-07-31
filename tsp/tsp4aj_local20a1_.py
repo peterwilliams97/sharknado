@@ -11,6 +11,7 @@ import numpy as np
 from itertools import count
 from utils import SortedDeque
 import sys
+import utils
 
 from numba import autojit, jit, double
 
