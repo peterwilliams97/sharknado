@@ -11,12 +11,19 @@ import sys
 from numba import autojit, jit, double
 
 VERSION = 7
-print 'VERSION=%d' % VERSION
 
-random.seed(111)
-
+MAX_CLOSEST = 50
+MAX_N =  30 * 1000
 DEBUG = False
 EPSILON = 1e-6
+RANDOM_SEED = 111 # The Nelson!
+
+print 'VERSION=%d' % VERSION
+print 'MAX_CLOSEST=%d' % MAX_CLOSEST
+print 'MAX_N=%d' % MAX_N
+
+random.seed(RANDOM_SEED)
+
 
 def CLOSE(a, b):
     return abs(a - b) < EPSILON
@@ -196,7 +203,13 @@ def save_solution(path, points, dist, order):
     history = HISTORY % VERSION
     print 'Writing history:', history, sys.argv[0]
     with open(history, 'wt') as f:
+        f.write('prog="%s"\n' % sys.argv[0])
         f.write('VERSION=%d\n' % VERSION)
+        f.write('MAX_CLOSEST=%d\n' % MAX_CLOSEST)
+        f.write('MAX_N=%d\n' % MAX_N)
+        f.write('RANDOM_SEED=%d\n' % RANDOM_SEED)
+        f.write('DEBUG=%s\n' % DEBUG)
+        f.write('EPSILON=%s\n' % EPSILON)
         f.write('saved_solutions = %s\n' % repr(saved_solutions))
         f.write('saved_points = %s\n' % repr(saved_points))
     
@@ -583,7 +596,7 @@ def do3opt_best(N, distances, dist, order, max_iter):
     dist1, order1 = do3_all[imin](N, distances, dist, order, deltas, boundaries)
     return dist1, order1
 
-MAX_CLOSEST = 20
+
 
 
 #from numba.decorators import jit
@@ -795,8 +808,15 @@ def solve(points):
     outer_solutions = []
     optimum_solutions = []
     
-    for start in xrange(N):
-        print '$%d' % start,
+    
+    NUM_GREEDY = (MAX_N + N - 1)//N
+    NUM_GREEDY = min(NUM_GREEDY, N)
+    print 'NUM_GREEDY=%d' % NUM_GREEDY 
+    
+    start_list = range(N)
+    random.shuffle(start_list)
+    for istart, start in enumerate(start_list[:NUM_GREEDY]):
+        print '$%d of %d: %d)' % (istart, NUM_GREEDY, start),
         dist, order = populate_greedy(N, distances, closest, start)
         #if start % 3 > 0:
         #    random.shuffle(order)
