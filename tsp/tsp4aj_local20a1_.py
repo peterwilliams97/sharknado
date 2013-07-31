@@ -1,5 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+"""
+    TODO:
+        Fix  make_sparse_distances()
+        Extend closest when no match in greedy
+"""
 from __future__ import division
 import math, random
 import numpy as np
@@ -9,7 +14,7 @@ import sys
 
 from numba import autojit, jit, double
 
-VERSION = 8
+VERSION = 100
 print 'VERSION=%d' % VERSION
 
 random.seed(111)
@@ -31,24 +36,22 @@ def length(point1, point2):
     #return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
 
 
-def _trip(locations, order):
+def trip_actual(locations, order):
     dist = 0
     p1 = locations[order[-1]]
     for i in order:
         p2 = locations[i]
-        #dist += np.hypot(p1 - p2) 
         diff = p1 - p2
         dist += np.sqrt(diff[0] ** 2 +diff[1] ** 2) 
-        #print '*', p1, p2, dist
         p1 = p2
-        #exit()    
     return dist
 
 def make_sparse_distances(N, locations, closest_distances, closest):    
     sparse_distances = [{} for _ in range(N)]
-    for i in range(N):
-        for j, jval in enumerate(closest[i,:]):
-            sparse_distances[i][jval] = closest_distances[i, j]
+    if False: # !@#$%
+        for i in range(N):
+            for j, jval in enumerate(closest[i,:]):
+                sparse_distances[i][jval] = closest_distances[i, j]
     return sparse_distances 
 
 def get_distance(locations, sparse_distances, i, j):
@@ -58,6 +61,7 @@ def get_distance(locations, sparse_distances, i, j):
         dxy = locations[i] - locations[j] 
         sparse_distances[i][j] = np.sqrt(dxy[0] ** 2 + dxy[1] ** 2)
     return sparse_distances[i][j]    
+    
 
 def trip2(locations, sparse_distances, order):
     dist = 0
@@ -71,7 +75,9 @@ def trip2(locations, sparse_distances, order):
             dxy = locations[i] - locations[j] 
             sparse_distances[i][j] = np.sqrt(dxy[0] ** 2 + dxy[1] ** 2)
         dist += sparse_distances[i][j]  
-        ii = jj    
+        ii = jj  
+    actual_dist = trip_actual(locations, order) 
+    assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)       
     return dist
     
     
@@ -85,6 +91,7 @@ def populate_greedy(N, locations, sparse_distances, closest, start):
     #print order
     i = 0
     order[0] = start
+    all_nodes = set(xrange(N))
     nodes = set([start])
     while i < N - 1:
         # print 'i=%d:' % i, all_nodes - nodes, len(nodes)
@@ -98,10 +105,32 @@ def populate_greedy(N, locations, sparse_distances, closest, start):
                 i += 1
                 break
         else:
-            cls = [int(ii) for ii in closest[order[i],:]]
-            print '@~What %d %d\n%s\n%s\n%s\n%s' % (i, N, order, cls,
-                    sorted(set(order)), sorted(set(cls)))
-            exit()
+            i0 = i
+            #print '(Whoa %d)' % (i), # , len(closest[order[i],:])),
+            for ii in closest[order[i],:]:
+                for j in closest[order[ii],:]:
+                    if j not in nodes:
+                        #print ('*', i, int(ii), int(j))
+                        order[i + 1] = j
+                        nodes.add(j)
+                        i += 1
+                        break
+                if i > i0:
+                    break
+                    
+            else:
+                remaining = all_nodes - nodes
+                j = remaining.pop()
+              
+                assert j not in nodes, j
+                order[i + 1] = j
+                nodes.add(j)
+                i += 1
+                #print '@~What %d %d %d' % (i, j, N)
+                #cls = [int(ii) for ii in closest[order[i],:]]
+                #print '@~What %d %d\n%s\n%s\n%s\n%s' % (i, N, order, cls,
+                #        sorted(set(order)), sorted(set(cls)))
+                #assert False
     #print order            
     assert len(set(order)) == len(order), '%d %d, %d'  % (len(set(order)), len(order), j)
 
@@ -494,7 +523,7 @@ def reverse_order(order, p1, p2):
     return order1    
    
 @autojit   
-def do2opt(N, distances, dist, order, delta, p1, p2, p1a, p2a): 
+def do2opt(N,  order, delta, p1, p2, p1a, p2a): 
     #(p1, p2), (p1a, p2a) = boundaries
     order1 = order.copy() # make a copy
     
@@ -506,7 +535,7 @@ def do2opt(N, distances, dist, order, delta, p1, p2, p1a, p2a):
     #show_path2(dist, order, dist1, order1, boundaries)
     #assert CLOSE(dist1, trip2(distances, order1)), DIFF(dist1, trip2(distances, order1)) 
     #assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))     
-    return dist + delta, order1  
+    return order1  
     
 def _do2opt_any(N, distances, dist, order):
     
@@ -756,7 +785,7 @@ import numba
 
 #@jit(argtypes=(numba.int32, numba.float_[:,:], numba.float_[:,:], numba.int32[:]))
 #@autojit
-def find_2_3opt_min(N, distances, closest, order):
+def find_2_3opt_min(N, locations, sparse_distances, closest, order):
     
     N1 = N - 1
     N2 = N - 2
@@ -768,20 +797,24 @@ def find_2_3opt_min(N, distances, closest, order):
     p1_, p2_, p3_ = -1, -1, -1
     opt3_i = -1
     opt3deltas = np.zeros(4)
+    
+    def get_dist(i, j):
+        return get_distance(locations, sparse_distances, i, j)
         
     for p1 in xrange(N - 4):
         # for p2 in xrange(p1+2, N - 2):
         #n2 = 0
         n2cnt = 0
         closest1 = closest[p1]
-        for n2 in xrange(N2):
+        for n2 in xrange(M):
             p2 = closest1[n2]
             #n2 += 1
             if p2 < p1 + 2 or p2 > N2: continue
                             
             w1, w2 = order[p1], order[p1 + 1]   # a b
             w3, w4 = order[p2], order[p2 + 1]   # c d 
-            delta = (distances[w1, w3] + distances[w2, w4]) - (distances[w1, w2] + distances[w3, w4])
+            
+            delta = (get_dist(w1, w3) + get_dist(w2, w4)) - (get_dist(w1, w2) + get_dist(w3, w4))
                         
             if delta < delta_:
                 delta_ = delta
@@ -798,7 +831,7 @@ def find_2_3opt_min(N, distances, closest, order):
         #    if p2 < p1 + 2: continue
         #    if n2 >= M: break
         closest1 = closest[p1]
-        for n2 in xrange(N1):
+        for n2 in xrange(M):
             p2 = closest1[n2]
             #n2 += 1
             if p2 < p1 + 2 or p2 > N - 4: continue 
@@ -807,7 +840,7 @@ def find_2_3opt_min(N, distances, closest, order):
             n3cnt = 0
             closest2 = closest[p2]
             
-            for n3 in xrange(N1):
+            for n3 in xrange(M):
                 p3_1 = closest1[n3]
                 p3_2 = closest2[n3]
                 #n3 += 1
@@ -825,11 +858,11 @@ def find_2_3opt_min(N, distances, closest, order):
                     w3, w4 = order[p2], order[p2+1]   # c d  
                     w5, w6 = order[p3], order[p3+1]   # e f  
                     
-                    bf = distances[w1, w2] + distances[w3, w4] + distances[w5, w6] # Original distance 
-                    opt3deltas[0] = distances[w1, w4] + distances[w2, w6] + distances[w3, w5] - bf
-                    opt3deltas[1] = distances[w1, w5] + distances[w2, w4] + distances[w3, w6] - bf
-                    opt3deltas[2] = distances[w1, w3] + distances[w2, w5] + distances[w4, w6] - bf
-                    opt3deltas[3]= distances[w1, w4] + distances[w2, w5] + distances[w3, w6] - bf 
+                    bf = get_dist(w1, w2) + get_dist(w3, w4) + get_dist(w5, w6) # Original distance 
+                    opt3deltas[0] = get_dist(w1, w4) + get_dist(w2, w6) + get_dist(w3, w5) - bf
+                    opt3deltas[1] = get_dist(w1, w5) + get_dist(w2, w4) + get_dist(w3, w6) - bf
+                    opt3deltas[2] = get_dist(w1, w3) + get_dist(w2, w5) + get_dist(w4, w6) - bf
+                    opt3deltas[3]= get_dist(w1, w4) + get_dist(w2, w5) + get_dist(w3, w6) - bf 
                    
                     for i in xrange(4):
                         if opt3deltas[i] < delta_:
@@ -845,28 +878,28 @@ def find_2_3opt_min(N, distances, closest, order):
     #return delta_, np.array([p1_, p2_, p3_, opt3_i])                   
 
    
-def do3opt_local(N, distances, closest, dist, order):
+def do3opt_local(N, locations, sparse_distances, closest, dist, order):
     
     #assert len(set(order)) == len(order)
-    delta, p1, p2, p3, opt3_i = find_2_3opt_min(N, distances, closest, order)
+    delta, p1, p2, p3, opt3_i = find_2_3opt_min(N, locations, sparse_distances, closest, order)
     
     dist1, order1 = dist, order
     #print 'best:', best 
 
     if delta < 0.0:
+        dist1 = dist + delta
         if p3 < 0: # 2-opt
-            dist1, order1 = do2opt(N, distances, dist, order, delta, p1, p2, p1+1, p2+1)
+            order1 = do2opt(N, order, delta, p1, p2, p1+1, p2+1)
         else: # 3-opt    
-            dist1 = dist + delta
             order1 = do3_all[opt3_i](N, order, ((p1, p2, p3), (p1+1, p2+1, p3+1)))
         
     return dist1, order1 
 
-def local_search(N, distances, closest, dist, order):
+def local_search(N, locations, sparse_distances, closest, dist, order):
     
     changed = False
     while True:
-        dist1, order1 = do3opt_local(N, distances, closest, dist, order)    
+        dist1, order1 = do3opt_local(N, locations, sparse_distances, closest, dist, order)    
         assert dist1 <= dist
         if dist1 == dist:
             break
@@ -952,7 +985,7 @@ def solve(points):
     
     N, locations, closest_distances, closest = precalculate(points)
     sparse_distances = make_sparse_distances(N, locations, closest_distances, closest)
-        
+     
     hash_base = np.random.randint(10**4, 10**6, N)
     visited = set()
     
@@ -970,15 +1003,15 @@ def solve(points):
          
         assert len(set(order)) == len(order), start
         assert CLOSE(dist, trip2(locations, sparse_distances, order)), DIFF(dist, trip2(locations, sparse_distances, order))
-        
-        
+               
         
         hsh = np.dot(hash_base, order)   
         if hsh in visited:   # Done this local search?
             continue
         visited.add(hsh)     
-        dist, order = local_search(N, distances, closest, dist, order)
-        assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
+        dist, order = local_search(N, locations, sparse_distances, closest, dist, order)
+        actual_dist = trip2(locations, sparse_distances, order)
+        assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
         assert dist > 0
                        
         assert len(set(order)) == len(order), start
@@ -1116,7 +1149,7 @@ partIds = ['WdrlJtJq',
 path_list = [fileNameLookup[id] for id in partIds]
 #path_list.reverse()
 
-for path in path_list:
+for path in path_list[1:]:
     print '-' * 80
     print path
     solution = solveIt(loadInputData(path), path)
