@@ -5,6 +5,7 @@ import math, random
 import numpy as np
 from itertools import count
 from utils import SortedDeque
+import utils
 import sys
 
 from numba import autojit, jit, double
@@ -73,26 +74,46 @@ def populate_greedy(N, distances, closest, start):
 def precalculate(points): 
     #global hack_locations
     N = len(points)
-    locations = np.array(points, dtype=np.float64)
     print '@@1'
-    distances = np.zeros((N, N), dtype=np.float64)
-    print '@@2'
-    for i in xrange(N):
-        diff = locations - locations[i]
-        #print diff.shape
-        for j in xrange(N):
-            #print diff[j].shape
-            #print np.sqrt(diff[0] ** 2 + diff[1] ** 2).shape
-            distances[i][j] = np.sqrt(diff[j][0] ** 2 + diff[j][1] ** 2) #;  np.hypot(diff[j]) 
-      
-    print '@@3'  
-    # Ordering of distances, closest first.
-    closest = np.zeros((N, N-1), dtype=np.int32)
-    print '@@4'
-    for i in xrange(N):
-        a = range(N)
-        a.sort(key=lambda j: distances[i, j])
-        closest[i, :] = a[1:] 
+    
+        
+    ppath = 'distances%d_%d.pkl' % (N, VERSION)
+    print '@@2', ppath
+    
+    existing = utils.load_object(ppath)
+    if existing:
+        print 'loading existing'
+        (N2, locations, distances, closest) = existing
+        assert N2 == N
+        assert locations.shape[0] == N
+        assert distances.shape[0] == N
+        assert closest.shape[0] == N
+    else:
+    
+        locations = np.array(points, dtype=np.float64)
+        distances = np.zeros((N, N), dtype=np.float64)
+    
+        for i in xrange(N):
+            if i % 1000 == 10:
+                print i,
+            diff = locations - locations[i]
+            #print diff.shape
+            for j in xrange(N):
+                #print diff[j].shape
+                #print np.sqrt(diff[0] ** 2 + diff[1] ** 2).shape
+                distances[i][j] = np.sqrt(diff[j][0] ** 2 + diff[j][1] ** 2) #;  np.hypot(diff[j]) 
+          
+        print '@@3'  
+        # Ordering of distances, closest first.
+        closest = np.zeros((N, N-1), dtype=np.int32)
+        print '@@4'
+        for i in xrange(N):
+            a = range(N)
+            a.sort(key=lambda j: distances[i, j])
+            closest[i, :] = a[1:] 
+            
+        existing = (N, locations, distances, closest) 
+        utils.save_object(ppath, existing)
 
     print '@@4'    
     #hack_locations = locations    
@@ -927,7 +948,7 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-path_list.reverse()
+#path_list.reverse()
 
 for path in path_list:
     print '-' * 80

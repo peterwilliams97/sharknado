@@ -137,18 +137,7 @@ def populate_greedy(N, locations, sparse_distances, closest, start):
     return trip2(locations, sparse_distances, order), order
     
 
-import cPickle as pickle
     
-def save_object(path, obj):
-    """Save obj to path"""
-    pickle.dump(obj, open(path, 'wb'))
-
-def load_object(path, default=None):
-    """Load object from path"""
-    try:
-        return pickle.load(open(path, 'rb'))
-    except:
-        return default    
 #hack_locations = None 
 
 MAX_CLOSEST = 50
