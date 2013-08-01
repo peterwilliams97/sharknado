@@ -10,7 +10,7 @@ import sys, time, os
 from numba import autojit, jit, double
 
 # 30 forwards, 31 backwards
-VERSION = 30
+VERSION = 31
 
 MAX_CLOSEST = 20
 MAX_N =  30 * 1000
@@ -846,7 +846,7 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-#path_list.reverse()
+path_list.reverse()
 
 for path in path_list:
     print '-' * 80
