@@ -10,7 +10,7 @@ import sys, time, os
 from numba import autojit, jit, double
 
 # 30 forwards, 31 backwards
-VERSION = 31
+VERSION = 30
 
 MAX_CLOSEST = 20
 MAX_N =  30 * 1000
@@ -98,7 +98,7 @@ def load_save_npa(base_dir, npa_dict, do_save):
             print '!'
         else:
             print 'loading', path
-            npa_dict[name] = np.load(path)
+            npa_dict[name] = np.load(path, mmap_mode='r')
             print npa_dict[name].shape, '!' 
             
     return True        
@@ -500,12 +500,18 @@ def find_2_3opt_min(N, distances, closest, order):
     opt3_i = -1
     opt3deltas = np.zeros(4)
         
+    counter = count()
+    
     for p1 in xrange(N - 4):
         # for p2 in xrange(p1+2, N - 2):
         #n2 = 0
         n2cnt = 0
         closest1 = closest[p1]
         for n2 in xrange(N2):
+            cnt = next(counter)
+            if cnt % 1000000 == 100000:
+                print 'cnt=%d,p1=%d,n2=%d,delta_=%f' % (cnt, p1, n2, delta_)
+           
             p2 = closest1[n2]
             #n2 += 1
             if p2 < p1 + 2 or p2 > N2: continue
@@ -520,7 +526,9 @@ def find_2_3opt_min(N, distances, closest, order):
                 
             n2cnt += 1
             if n2cnt > M: break 
-         
+       
+    counter2 = count()
+    
     done_p3 = set()     
     for p1 in xrange(N - 6):
         #for p2 in xrange(p1+2, N - 4):
@@ -528,8 +536,13 @@ def find_2_3opt_min(N, distances, closest, order):
         #for p2 in closest[p1]:
         #    if p2 < p1 + 2: continue
         #    if n2 >= M: break
+        n2cnt = 0
         closest1 = closest[p1]
         for n2 in xrange(N1):
+            #cnt = next(counter2)
+            #if cnt % 1000000 == 500:
+            #    print '**cnt=%d,p1=%d,n2=%d,n3=%d' % (cnt, p1, n2, n3) 
+        
             p2 = closest1[n2]
             #n2 += 1
             if p2 < p1 + 2 or p2 > N - 4: continue 
@@ -539,6 +552,10 @@ def find_2_3opt_min(N, distances, closest, order):
             closest2 = closest[p2]
             
             for n3 in xrange(N1):
+                cnt = next(counter2)
+                if cnt % 1000000 == 100000:
+                    print 'cnt=%d,p1=%d,n2=%d,n3=%d,delta_=%f' % (cnt, p1, n2, n3, delta_)  
+                    
                 p3_1 = closest1[n3]
                 p3_2 = closest2[n3]
                 #n3 += 1
@@ -568,10 +585,16 @@ def find_2_3opt_min(N, distances, closest, order):
                             opt3_i = i
                             p1_, p2_, p3_ = p1, p2, p3
                     
-                    n3cnt += 1
-                if n3cnt > M: break    
+                    #n3cnt += 1
+                if n3cnt > M//2: 
+                    #print (n3cnt,),
+                    break 
+                
             n2cnt += 1
-            if n2cnt > M: break
+            
+            if n2cnt > M//2: break
+        #print ('*', n2cnt, n2, cnt)
+            
     return delta_, p1_, p2_, p3_, opt3_i                              
     #return delta_, np.array([p1_, p2_, p3_, opt3_i])                   
 
@@ -594,6 +617,8 @@ def do3opt_local(N, distances, closest, dist, order):
     return dist1, order1 
 
 def local_search(N, distances, closest, dist, order):
+    
+   
     
     changed = False
     while True:
@@ -692,11 +717,12 @@ def solve(points):
     start_list = range(N)
     random.shuffle(start_list)
     for istart, start in enumerate(start_list[:NUM_GREEDY]):
-        print '$%d of %d: %d)' % (istart, NUM_GREEDY, start),
+        print '$%d of %d: %d:' % (istart, NUM_GREEDY, start),
         dist, order = populate_greedy(N, distances, closest, start)
-        #if start % 3 > 0:
-        #    random.shuffle(order)
-        #    dist = trip2(distances, order)
+        print '%.2f)' % dist, 
+        
+        if not optimum_solutions or dist < optimum_solutions[-1][0]:
+             print 'best before:', dist,
         
         normalize(N, order)
          
@@ -707,7 +733,8 @@ def solve(points):
         hsh = np.dot(hash_base, order)   
         if hsh in visited:   # Done this local search?
             continue
-        visited.add(hsh)     
+        visited.add(hsh)   
+        
         dist, order = local_search(N, distances, closest, dist, order)
         actual_dist = trip2(distances, order)
         assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
@@ -846,7 +873,7 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-path_list.reverse()
+#path_list.reverse()
 
 for path in path_list:
     print '-' * 80
