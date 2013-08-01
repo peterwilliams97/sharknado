@@ -752,9 +752,9 @@ def solve(path, points):
             optimum_solutions.append((actual_dist, hsh, order))
             print 'best:', optimum_solutions[-1][0]
             tm = time.time()
-            if tm > last_save_time + 6:
+            if tm > last_save_time + 10 * 60:
                 print 'saving:', tm
-                save_solution(path, points, dist, order)
+                save_solution(path, points, actual_dist, order)
                 last_save_time = tm # !@#$
         
         assert dist > 0
