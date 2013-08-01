@@ -136,8 +136,9 @@ def precalculate(points):
     else:
     
         locations = np.array(points, dtype=np.float64)
-        distances = np.zeros((N, N), dtype=np.float64)  # !@#$%
-        closest = np.zeros((N, N-1), dtype=np.int32)
+        distances = np.empty((N, N), dtype=np.float64)  # !@#$%
+        closest = np.empty((N, N-1), dtype=np.int32)
+        row = np.empty(N, dtype=np.float64)
         
         print '@@2a'
         print 'locations:', locations.shape
@@ -151,20 +152,15 @@ def precalculate(points):
                     dt = max(0.1, time.time() - start_time)
                     print (i, i/N, dt, i/dt, (N - i)/(i/dt)/3600.0)
                 diff = locations - locations[i]
-                #print diff.shape
                 for j in xrange(N):
-                    #print diff[j].shape
-                    #print np.sqrt(diff[0] ** 2 + diff[1] ** 2).shape
-                    distances[i][j] = np.sqrt(diff[j][0] ** 2 + diff[j][1] ** 2) #;  np.hypot(diff[j]) 
-              
-            print '@@3'  
-            # Ordering of distances, closest first.
-            
-            print '@@4'
-            for i in xrange(N):
+                    row[j] = np.sqrt(diff[j][0] ** 2 + diff[j][1] ** 2)
+                distances[i,:] = row[:] 
+                # Ordering of distances, closest first.
                 a = range(N)
-                a.sort(key=lambda j: distances[i, j])
-                closest[i, :] = a[1:] 
+                a.sort(key=lambda j: distances[i,j])
+                closest[i, :] = a[1:]     
+ 
+            print '@@4'    
         
         npa_dict['locations'], npa_dict['distances'], npa_dict['closest'] = locations, distances, closest
         load_save_npa(base_dir, npa_dict, True)
