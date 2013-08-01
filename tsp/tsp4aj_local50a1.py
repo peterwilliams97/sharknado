@@ -9,6 +9,7 @@ import sys, time, os
 
 from numba import autojit, jit, double
 
+
 # 130 forwards, 131 backwards
 VERSION = 130
 
@@ -237,6 +238,7 @@ def show_path2(dist, order, dist1, order1, boundaries):
     plt.title('after: %.2f' % dist1)
     draw_path(order1, boundaries)
     plt.show() 
+    
 
 HISTORY = 'history%02d.py'   
 saved_points = {}    
@@ -269,111 +271,8 @@ def calc2opt_delta(N, distances, order, dist_check, boundary_starts):
     delta = (distances[w1, w3] + distances[w2, w4]) - (distances[w1, w2] + distances[w3, w4])
     return delta, ((p1, p2), (p1a, p2a)) 
     
-def calc2opt(N, distances, order, dist_check):
-    """2-opt
-        Reverse [p1:p2] inclusive
-    """
-
-    #assert isinstance(order, np.ndarray), type(order)
-    #assert CLOSE(dist_check, trip2(distances, order)), '%s %s' % (dist_check, trip2(distances, order))
-    
-    #print 'calc2opt:', order
-    #print distances
-    
-    N1 = N - 1
-   
-    # select indices of two random points in the tour
-    p1, p2 = random.randrange(0, N), random.randrange(0, N)
-    # do this so as not to overshoot tour boundaries
-   
-    p1b = p1 - 1 if p1 > 0 else N1 
-    p1a = p1 + 1 if p1 < N1 else 0
-    w0, w1, w2 = order[p1b], order[p1], order[p1a]
-        
-    exclude = set([w0, w1, w2])
-     
-    while order[p2] in exclude:
-        p2 = random.randrange(0, N)
-    
-    p2b = p2 - 1 if p2 > 0 else N1 
-    p2a = p2 + 1 if p2 < N1 else 0
-    w3, w4 = order[p2], order[p2a]
-    
-    # to ensure we always have p1<p2        
-    if p2 < p1:
-        p1, p2 = p2, p1
-    
-    p1a = p1 + 1 if p1 < N1 else 0
-    p2a = p2 + 1 if p2 < N1 else 0
-    w1, w2 = order[p1], order[p1a]   
-    w3, w4 = order[p2], order[p2a]    
-    #print (p1, p1a), (p2, p2a)    
-    
-    #print p1, p2, N1, order.shape
-    #w1, w2 = order[p1], order[p1a]
-   
-    #print (p1, (w1, w2)), (p2, (w3, w4))
-    #print (distances[w1, w2], distances[w3, w4]), (distances[w1, w3], distances[w2, w4])
-    delta = (distances[w1, w3] + distances[w2, w4]) - (distances[w1, w2] + distances[w3, w4]) 
-    
-    if DEBUG:
-        order1 = order.copy() 
-        if p1a == 0:
-            for i in range((p2+1)//2):
-                order1[p2-i], order1[i] = order1[p2-i], order1[i] 
-        else:
-            order1[p1a:p2+1] = order[p2:p1a-1:-1] # reverse the tour segment between p1 and p2
-        print order, trip2(distances, order)
-        print order1, trip2(distances, order1)
-        print delta
-      
-    return delta, (p1a, p2) 
 
 
-def _do2opt_best(N, distances, dist, order, max_iter):
-
-    assert len(set(order)) == len(order)
-    for _ in xrange(max_iter):
-        delta, (p1, p2) = calc2opt(N, distances, order, dist)
-        if delta < 0:
-            break
-    
-    assert dist + delta > 0    
-    order1 = order.copy() # make a copy
-    assert len(set(order1)) == len(order1), '%d %d : %d %d' % (len(set(order1)), len(order1), p1 , p2)
-     
-    #print 'order :', order.shape, order[p1:p2].shape 
-    #print 'order1:', order1.shape,  order1[p2:p1:-1].shape 
- 
-    #print order1[p1:p2+1].shape, order[p2:p1-1:-1].shape
-    #print order1[p1:p2+1]
-    #print order1[p2:p1-1:-1]
-    #print np.array(list(reversed(list(order1[p2:p1-1:-1]))))
-    #print sorted(set(order1[p1:p2+1]))
-    #print sorted(set(order[p2:p1-1:-1]))
-    #print  order1[p1-1:p1+2], order1[p2-1:p2+2] 
-    #print p1, p2, N, order1[p1:p2+1].shape, order[p2:p1-1:-1].shape
-    if p1 == 0:
-        for i in range((p2+1)//2):
-            order1[p2-i], order1[i] = order1[p2-i], order1[i] 
-    else:
-        order1[p1:p2+1] = order[p2:p1-1:-1] # reverse the tour segment between p1 and p2  
-    #print set(range(N)) - set(order1)
-    assert len(set(order1)) == len(order1), '%d %d : %d %d' % (len(set(order1)), len(order1), p1 , p2)     
-    
-    if DEBUG:
-        print p1, p2
-        for o in order, order1:
-            print '----'
-            print '%s\n%s\n%s' % (o[:p1], o[p1:p2+1], o[p2+1:]) 
-        
-    assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
- 
-    assert CLOSE(dist + delta, trip2(distances, order1)), '%s %s %s %s %e' % (dist, delta, 
-        dist + delta,
-        trip2(distances, order1),
-        (dist + delta - trip2(distances, order1))/EPSILON)
-    return dist + delta, order1 
 
 @autojit
 def reverse_order(order, p1, p2):
@@ -389,58 +288,10 @@ def reverse_order(order, p1, p2):
    
 @autojit   
 def do2opt(N, distances, dist, order, delta, p1, p2, p1a, p2a): 
-    #(p1, p2), (p1a, p2a) = boundaries
     order1 = order.copy() # make a copy
-    
-    #print (p1, p2), N, order
-    #t = reverse_order(order, p1, p2)
-    #print order1[p1:p2+1].shape, t.shape
     order1[p1a:p2+1] = reverse_order(order, p1a, p2)
-    #dist1 = dist + delta
-    #show_path2(dist, order, dist1, order1, boundaries)
-    #assert CLOSE(dist1, trip2(distances, order1)), DIFF(dist1, trip2(distances, order1)) 
-    #assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))     
     return dist + delta, order1  
     
-def _do2opt_any(N, distances, dist, order):
-    
-    #assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
-    
-    p1, p2 = random.randrange(0, N), random.randrange(0, N)
-    # do this so as not to overshoot tour boundaries
- 
-    N1 = N - 1
-    p1b = p1 - 1 if p1 > 0 else N1 
-    p1a = p1 + 1 if p1 < N1 else 0
-    w0, w1, w2 = order[p1b], order[p1], order[p1a]
-        
-    exclude = set([w0, w1, w2])
-     
-    while order[p2] in exclude:
-        p2 = random.randrange(0, N)
-        
-    # to ensure we always have p1<p2        
-    if p2 < p1:
-        p1, p2 = p2, p1
-
-
-    delta, boundaries = calc2opt_delta(N, distances, order, dist, (p1, p2))
-    #assert dist + delta > 0
-    
-    #print '%', boundaries
-    return do2opt(N, distances, dist, order, delta, p1, p2, p1a, p2a)
-    
-    order1 = order.copy() # make a copy
-    if p1 == 0:
-        for i in range((p2+1)//2):
-            order1[p2-i], order1[i] = order1[p2-i], order1[i] 
-    else:
-        order1[p1:p2+1] = order[p2:p1-1:-1] # reverse the tour segment between p1 and p2           
-    #assert isinstance(order, np.ndarray), type(order)
-    #print '@12', order1.shape
-    #assert len(set(order1)) == len(order1), '%d %d' % (len(set(order1)), len(order1))     
-    return dist + delta, order1
-
 @autojit
 def calc3opt_deltas(N, distances, order, dist_check, boundary_starts):    
     N1 = N - 1
@@ -480,11 +331,6 @@ def calc3opt(N, distances, order, dist_check):
         
     """
 
-    #assert isinstance(order, np.ndarray), type(order)
-    #assert CLOSE(dist_check, trip2(distances, order)), '%s %s' % (dist_check, trip2(distances, order))
-    
-    #print 'calc2opt:', order
-    #print distances
     
     N1 = N - 1
    
@@ -605,24 +451,16 @@ def do3opt_3(N, order,  boundaries):
     
 do3_all = [do3opt_0, do3opt_1, do3opt_2, do3opt_3]    
     
-def do3opt_any(N, distances, dist, order, selection):
-    """
-        a p1
-        b p1a
-        c p2
-        d p2a
-        e p3
-        f p3a
-    """
+
+"""
+    a p1
+    b p1a
+    c p2
+    d p2a
+    e p3
+    f p3a
+"""
     
-    assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
-    
-    deltas, boundaries = calc3opt(N, distances, order, dist)
-    assert all((dist + d > 0) for d in deltas) 
-    
-    return ([dist + d for d in deltas], 
-            [do3(N, distances, dist, order, deltas, boundaries) 
-                for do3 in do3_all]) 
 
     
 def do3opt_best(N, distances, dist, order, max_iter):
@@ -772,12 +610,7 @@ def local_search(N, distances, closest, dist, order):
     
 def search(N, distances, visited, hash_base, dist, order):
     """Search for best solution starting with order"""
-  
-    #assert isinstance(dist, float), type(dist)
-    #assert isinstance(order, np.ndarray), type(order)
-    #assert CLOSE(dist, trip2(distances, order))
-    #print '@1', order.shape
-  
+    
     MAX_NO_IMPROVEMENT = 20 
     MAX_ITER = 40 
     MAX_NEIGHBORHOOD = 30 
@@ -869,7 +702,8 @@ def solve(points):
         normalize(N, order)
          
         assert len(set(order)) == len(order), start
-        assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
+        #actual_dist = trip2(distances, order)
+        #assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
         
         hsh = np.dot(hash_base, order)   
         if hsh in visited:   # Done this local search?
