@@ -15,7 +15,7 @@ import sys, time, os
 from numba import autojit, jit, double
 
 # 40 forwards, 41 backwards
-VERSION = 41
+VERSION = 40
 
 MAX_CLOSEST = 20
 MAX_N =  30 * 1000
@@ -31,10 +31,10 @@ random.seed(RANDOM_SEED)
 
 
 def CLOSE(a, b):
-    return abs(a - b) < EPSILON
+    return abs(a - b) < 10.0
  
 def DIFF(a, b): 
-    return '%s - %s = %s' % (a, b, a -b)    
+    return 'DIFF: %s - %s = %s' % (a, b, a - b)    
 
 random.seed(111)
 
@@ -245,9 +245,11 @@ def show_path2(dist, order, dist1, order1, boundaries):
     
 
 HISTORY = 'history%02d.py'   
+saved_paths = set() 
 saved_points = {}    
 saved_solutions = {}    
 def save_solution(path, points, dist, order):
+    saved_paths.add(path)
     saved_points[path] = points
     saved_solutions[path] = (dist, order) 
     history = HISTORY % VERSION
@@ -260,6 +262,7 @@ def save_solution(path, points, dist, order):
         f.write('RANDOM_SEED=%d\n' % RANDOM_SEED)
         f.write('DEBUG=%s\n' % DEBUG)
         f.write('EPSILON=%s\n' % EPSILON)
+        f.write('saved_paths = %s\n' % repr(sorted(saved_paths)))
         f.write('saved_solutions = %s\n' % repr(saved_solutions))
         f.write('saved_points = %s\n' % repr(saved_points))
     
@@ -705,7 +708,7 @@ MAX_ITER = 100
         
 def solve(path, points):
     """Return traversal order of points that minimizes distance travelled"""
-    last_save_time = time.time()
+    
     
     N, locations, distances, closest = precalculate(points)
         
@@ -720,51 +723,51 @@ def solve(path, points):
     NUM_GREEDY = min(NUM_GREEDY, N)
     print 'NUM_GREEDY=%d' % NUM_GREEDY 
     
+    last_save_time = [time.time()]
+    
+    def update_if_necessary(title):
+        # Save our valuable result before we assert
+        if not optimum_solutions or dist < optimum_solutions[-1][0]:
+            actual_dist = trip2(distances, order)
+            optimum_solutions.append((actual_dist, hsh, order))
+            print 'best %s:' % title, optimum_solutions[-1][0]
+            tm = time.time()
+            if  tm > last_save_time[0] + 60 * 5:
+                print 'saving:',  tm - last_save_time[0] 
+                save_solution(path, points, actual_dist, order)
+                last_save_time[0] = tm # !@#$
+            if not CLOSE(dist, actual_dist):
+                print '**********************', DIFF(dist, actual_dist)    
+    
     start_list = range(N)
     random.shuffle(start_list)
     for istart, start in enumerate(start_list[:NUM_GREEDY]):
         print '$%d of %d: %d:' % (istart, NUM_GREEDY, start),
         dist, order = populate_greedy(N, distances, closest, start)
         print '%.2f)' % dist, 
-        
-        if not optimum_solutions or dist < optimum_solutions[-1][0]:
-             print 'best before:', dist,
-        
+           
         normalize(N, order)
+        hsh = np.dot(hash_base, order)   
+        if hsh in visited:   # Done this local search?
+            continue
+        visited.add(hsh) 
+        
+        update_if_necessary('greedy')
          
         assert len(set(order)) == len(order), start
         #actual_dist = trip2(distances, order)
         #assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
-        
-        hsh = np.dot(hash_base, order)   
-        if hsh in visited:   # Done this local search?
-            continue
-        visited.add(hsh)   
-        
+       
         dist, order = local_search(N, distances, closest, dist, order)
+        hsh = np.dot(hash_base, order)
+        visited.add(hsh)  
+        update_if_necessary('local_search')
+        
         actual_dist = trip2(distances, order)
-        
-        if not CLOSE(dist, actual_dist):
-            print DIFF(dist, actual_dist)
-            
-        # Save our valuable result before we assert
-        if not optimum_solutions or actual_dist < optimum_solutions[-1][0]:
-            optimum_solutions.append((actual_dist, hsh, order))
-            print 'best:', optimum_solutions[-1][0]
-            tm = time.time()
-            if tm > last_save_time + 10 * 60:
-                print 'saving:', tm
-                save_solution(path, points, actual_dist, order)
-                last_save_time = tm # !@#$
-        
+
         assert dist > 0
         assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
-                       
         assert len(set(order)) == len(order), start
-        hsh = np.dot(hash_base, order)
-        #print hash_base.shape, order.shape, hsh.shape
-        #assert hsh not in visited
-        visited.add(hsh)    
         outer_solutions.append((dist, hsh, order))
         
             
@@ -777,9 +780,7 @@ def solve(path, points):
             continue
         dist, order = search(N, distances, visited, hash_base, dist, order)
         assert dist > 0
-        if dist < optimum_solutions[-1][0]:
-            optimum_solutions.append((dist, hsh, order))
-            print 'best:', optimum_solutions[-1][0]
+        update_if_necessary('search', True)
     
     dist, _, order = optimum_solutions[-1]
     
@@ -891,7 +892,7 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-path_list.reverse()
+#path_list.reverse()
 
 for path in path_list:
     print '-' * 80
