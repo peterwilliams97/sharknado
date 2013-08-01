@@ -15,7 +15,7 @@ import sys, time, os
 from numba import autojit, jit, double
 
 # 40 forwards, 41 backwards
-VERSION = 40
+VERSION = 41
 
 MAX_CLOSEST = 20
 MAX_N =  30 * 1000
@@ -498,8 +498,8 @@ def find_2_3opt_min(N, distances, closest, order):
     N2 = N - 2
     #N4 = N - 4
     M = min(N1, MAX_CLOSEST)
-    #M2 = min(N1, MAX_CLOSEST//2)
-    
+    M2 = int(min(N1, math.sqrt(MAX_CLOSEST)))
+        
     delta_ = 0.0
     p1_, p2_, p3_ = -1, -1, -1
     opt3_i = -1
@@ -591,13 +591,13 @@ def find_2_3opt_min(N, distances, closest, order):
                             p1_, p2_, p3_ = p1, p2, p3
                     
                     #n3cnt += 1
-                if n3cnt > M//2: 
+                if n3cnt > M2: 
                     #print (n3cnt,),
                     break 
                 
             n2cnt += 1
             
-            if n2cnt > M//2: break
+            if n2cnt > M2: break
         #print ('*', n2cnt, n2, cnt)
             
     return delta_, p1_, p2_, p3_, opt3_i                              
@@ -891,7 +891,7 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-#path_list.reverse()
+path_list.reverse()
 
 for path in path_list:
     print '-' * 80
