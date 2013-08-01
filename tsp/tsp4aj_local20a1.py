@@ -60,7 +60,7 @@ def populate_greedy(N, distances, closest, start):
     order[0] = start
     nodes = set([start])
     while i < N - 1:
-        if i % 100 == 1:
+        if i % 1000 == 999:
             print 'i=%d,nodes=%d,%d' % (i, len(all_nodes - nodes), len(nodes))
         if not (all_nodes - nodes):
             #print 'i=%d' % i
@@ -85,12 +85,13 @@ def load_save_npa(base_dir, npa_dict, do_save):
             pass
     else:
         for name in npa_dict:
-            path = os.path.join(base_dir, name)
+            path = os.path.join(base_dir, name + '.npy')
             if not os.path.exists(path):
+                print '%s does not exist' % path
                 return False
             
     for name in npa_dict:
-        path = os.path.join(base_dir, name)
+        path = os.path.join(base_dir, name + '.npy')
         if do_save: 
             print 'saving', path, npa_dict[name].shape, 
             np.save(path, npa_dict[name])
@@ -118,12 +119,12 @@ def precalculate(points):
     existing = load_save_npa(base_dir, npa_dict, False)
     if existing:
         locations, distances, closest = npa_dict['locations'], npa_dict['distances'], npa_dict['closest'] 
-        print 'loading existing'
+        print 'loading existing !!!!!!!!!!!!!!!!!!'
         print 'locations:', locations.shape
         print 'distances:', distances.shape
         print 'closest:', closest.shape
-        
-        assert N2 == N
+
+     
         assert locations.shape[0] == N
         assert distances.shape[0] == N
         assert distances.shape[1] == N
@@ -135,7 +136,7 @@ def precalculate(points):
     else:
     
         locations = np.array(points, dtype=np.float64)
-        distances = np.zeros((N, N), dtype=np.float32)  # !@#$%
+        distances = np.zeros((N, N), dtype=np.float64)  # !@#$%
         closest = np.zeros((N, N-1), dtype=np.int32)
         
         print '@@2a'
@@ -143,7 +144,7 @@ def precalculate(points):
         print 'distances:', distances.shape
         print 'closest:', closest.shape
         
-        if False: # !@#$
+        if True: # !@#$
             start_time = time.time()
             for i in xrange(N):
                 if i % 1000 == 100:
@@ -879,7 +880,8 @@ def solve(points):
             continue
         visited.add(hsh)     
         dist, order = local_search(N, distances, closest, dist, order)
-        assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
+        actual_dist = trip2(distances, order)
+        assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
         assert dist > 0
                        
         assert len(set(order)) == len(order), start
@@ -1015,7 +1017,7 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-path_list.reverse()
+#path_list.reverse()
 
 for path in path_list:
     print '-' * 80
