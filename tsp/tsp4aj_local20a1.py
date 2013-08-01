@@ -4,14 +4,13 @@ from __future__ import division
 import math, random
 import numpy as np
 from itertools import count
-from utils import SortedDeque
-import utils
-import sys, time
+
+import sys, time, os
 
 from numba import autojit, jit, double
 
 # 30 forwards, 31 backwards
-VERSION = 31
+VERSION = 30
 
 MAX_CLOSEST = 20
 MAX_N =  30 * 1000
@@ -78,6 +77,33 @@ def populate_greedy(N, distances, closest, start):
     return trip2(distances, order), order
     
 
+def load_save_npa(base_dir, npa_dict, do_save):
+    if do_save:
+        try:
+            os.makedirs(base_dir)
+        except:
+            pass
+    else:
+        for name in npa_dict:
+            path = os.path.join(base_dir, name)
+            if not os.path.exists(path):
+                return False
+            
+    for name in npa_dict:
+        path = os.path.join(base_dir, name)
+        if do_save: 
+            print 'saving', path, npa_dict[name].shape, 
+            np.save(path, npa_dict[name])
+            print '!'
+        else:
+            print 'loading', path
+            npa_dict[name] = np.load(path)
+            print npa_dict[name].shape, '!' 
+            
+    return True        
+
+    
+CACHE_DIR = 'cache'    
 #hack_locations = None 
   
 def precalculate(points): 
@@ -85,13 +111,13 @@ def precalculate(points):
     N = len(points)
     print '@@1'
     
-        
-    ppath = 'distances_all%05d.pkl' % N
-    print '@@2', ppath
+    base_dir = os.path.join(CACHE_DIR, 'obs%05d' % N)
+    npa_dict = { 'locations': None,   'distances': None, 'closest': None,  }
+    print '@@2', base_dir
     
-    existing = utils.load_object(ppath)
+    existing = load_save_npa(base_dir, npa_dict, False)
     if existing:
-        (N2, locations, distances, closest) = existing
+        locations, distances, closest = npa_dict['locations'], npa_dict['distances'], npa_dict['closest'] 
         print 'loading existing'
         print 'locations:', locations.shape
         print 'distances:', distances.shape
@@ -109,8 +135,13 @@ def precalculate(points):
     else:
     
         locations = np.array(points, dtype=np.float64)
-        distances = np.zeros((N, N), dtype=np.float64)
+        distances = np.zeros((N, N), dtype=np.float32)  # !@#$%
         closest = np.zeros((N, N-1), dtype=np.int32)
+        
+        print '@@2a'
+        print 'locations:', locations.shape
+        print 'distances:', distances.shape
+        print 'closest:', closest.shape
         
         if False: # !@#$
             start_time = time.time()
@@ -133,9 +164,10 @@ def precalculate(points):
                 a = range(N)
                 a.sort(key=lambda j: distances[i, j])
                 closest[i, :] = a[1:] 
-                
-        existing = (N, locations, distances, closest) 
-        utils.save_object(ppath, existing)
+        
+        npa_dict['locations'], npa_dict['distances'], npa_dict['closest'] = locations, distances, closest
+        load_save_npa(base_dir, npa_dict, True)
+    
 
     print '@@4'    
     #hack_locations = locations    
