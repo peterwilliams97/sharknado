@@ -14,14 +14,14 @@ import sys, time, os
 
 from numba import autojit, jit, double
 
-# 40 forwards, 41 backwards
+# 70 forwards, 71 backwards
 VERSION = 60
 
 MAX_CLOSEST = 50
 MAX_N =  30 * 1000
 DEBUG = False
 EPSILON = 1e-6
-RANDOM_SEED = 113 # Not he Nelson!
+RANDOM_SEED = 150 # Not the Nelson!
 
 print 'VERSION=%d' % VERSION
 print 'MAX_CLOSEST=%d' % MAX_CLOSEST
@@ -502,7 +502,6 @@ def find_2_3opt_min(N, distances, closest, order, dist):
     #N4 = N - 4
     M = min(N1, MAX_CLOSEST)
     M2 = int(min(N1, math.sqrt(MAX_CLOSEST)))
-    #print 'N, M, M2', N, M, M2
         
     delta_ = 0.0
     p1_, p2_, p3_ = -1, -1, -1
