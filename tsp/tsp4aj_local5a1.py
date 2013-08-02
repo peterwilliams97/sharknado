@@ -22,7 +22,7 @@ MAX_CLOSEST = 5
 MAX_N =  30 * 1000
 DEBUG = False
 EPSILON = 1e-6
-RANDOM_SEED = 111 # The Nelson!
+RANDOM_SEED = 105 # Not the Nelson!
 
 print 'VERSION=%d' % VERSION
 print 'MAX_CLOSEST=%d' % MAX_CLOSEST
@@ -496,7 +496,7 @@ import numba
 
 #@jit(argtypes=(numba.int32, numba.float_[:,:], numba.float_[:,:], numba.int32[:]))
 #@autojit
-def find_2_3opt_min(N, distances, closest, order):
+def find_2_3opt_min(N, distances, closest, order, dist):
     
     N1 = N - 1
     N2 = N - 2
