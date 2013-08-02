@@ -519,7 +519,7 @@ def find_2_3opt_min(N, distances, closest, order, dist):
         for n2 in xrange(N2):
             cnt = next(counter)
             if cnt % 1000000 == 100000:
-                print 'cnt2=%d,p1=%d,n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, n2, delta_, dist+delta)
+                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, n2, delta_, dist+delta)
            
             p2 = closest1[n2]
             #n2 += 1
@@ -562,7 +562,7 @@ def find_2_3opt_min(N, distances, closest, order, dist):
             for n3 in xrange(N1):
                 cnt = next(counter2)
                 if cnt % 1000000 == 100000:
-                    print 'cnt3=%d,p1=%d,n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, n2, n3, delta_, dist+delta)
+                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, p3, n2, n3, delta_, dist+delta)
                     
                 p3_1 = closest1[n3]
                 p3_2 = closest2[n3]
