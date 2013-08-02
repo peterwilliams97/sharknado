@@ -518,7 +518,7 @@ def find_2_3opt_min(N, distances, closest, order):
         for n2 in xrange(N2):
             cnt = next(counter)
             if cnt % 1000000 == 100000:
-                print 'cnt2=%d,p1=%d,n2=%d,delta_=%f' % (cnt, p1, n2, delta_)
+                print 'cnt2=%d,p1=%d,n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, n2, delta_, dist+delta)
            
             p2 = closest1[n2]
             #n2 += 1
@@ -552,7 +552,6 @@ def find_2_3opt_min(N, distances, closest, order):
             #    print '**cnt=%d,p1=%d,n2=%d,n3=%d' % (cnt, p1, n2, n3) 
         
             p2 = closest1[n2]
-            #n2 += 1
             if p2 < p1 + 2 or p2 > N - 4: continue 
                         
             #for p3 in xrange(p2+2, N - 2):
@@ -562,7 +561,7 @@ def find_2_3opt_min(N, distances, closest, order):
             for n3 in xrange(N1):
                 cnt = next(counter2)
                 if cnt % 1000000 == 100000:
-                    print 'cnt3=%d,p1=%d,n2=%d,n3=%d,delta_=%f' % (cnt, p1, n2, n3, delta_)  
+                    print 'cnt3=%d,p1=%d,n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, n2, n3, delta_, dist+delta)
                     
                 p3_1 = closest1[n3]
                 p3_2 = closest2[n3]
@@ -593,7 +592,7 @@ def find_2_3opt_min(N, distances, closest, order):
                             opt3_i = i
                             p1_, p2_, p3_ = p1, p2, p3
                     
-                    #n3cnt += 1
+                    n3cnt += 1
                 if n3cnt > M2: 
                     #print (n3cnt,),
                     break 
@@ -610,7 +609,7 @@ def find_2_3opt_min(N, distances, closest, order):
 def do3opt_local(N, distances, closest, dist, order):
     
     #assert len(set(order)) == len(order)
-    delta, p1, p2, p3, opt3_i = find_2_3opt_min(N, distances, closest, order)
+    delta, p1, p2, p3, opt3_i = find_2_3opt_min(N, distances, closest, order, dist)
     
     dist1, order1 = dist, order
     #print 'best:', best 

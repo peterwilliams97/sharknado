@@ -1,5 +1,10 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+"""
+TODO: Lower M for 3-opt
+      Save more often
+      M=10 for 33000 instance
+"""
 from __future__ import division
 import math, random
 import numpy as np
@@ -9,15 +14,14 @@ import sys, time, os
 
 from numba import autojit, jit, double
 
-
-# 130 forwards, 131 backwards
-VERSION = 130
+# 40 forwards, 41 backwards
+VERSION = 60
 
 MAX_CLOSEST = 50
 MAX_N =  30 * 1000
 DEBUG = False
 EPSILON = 1e-6
-RANDOM_SEED = 111 # The Nelson!
+RANDOM_SEED = 113 # Not he Nelson!
 
 print 'VERSION=%d' % VERSION
 print 'MAX_CLOSEST=%d' % MAX_CLOSEST
@@ -27,10 +31,10 @@ random.seed(RANDOM_SEED)
 
 
 def CLOSE(a, b):
-    return abs(a - b) < EPSILON
+    return abs(a - b) < 10.0
  
 def DIFF(a, b): 
-    return '%s - %s = %s' % (a, b, a -b)    
+    return 'DIFF: %s - %s = %s' % (a, b, a - b)    
 
 random.seed(111)
 
@@ -99,7 +103,7 @@ def load_save_npa(base_dir, npa_dict, do_save):
             print '!'
         else:
             print 'loading', path
-            npa_dict[name] = np.load(path)
+            npa_dict[name] = np.load(path, mmap_mode='r')
             print npa_dict[name].shape, '!' 
             
     return True        
@@ -241,9 +245,11 @@ def show_path2(dist, order, dist1, order1, boundaries):
     
 
 HISTORY = 'history%02d.py'   
+saved_paths = set() 
 saved_points = {}    
 saved_solutions = {}    
 def save_solution(path, points, dist, order):
+    saved_paths.add(path)
     saved_points[path] = points
     saved_solutions[path] = (dist, order) 
     history = HISTORY % VERSION
@@ -256,6 +262,7 @@ def save_solution(path, points, dist, order):
         f.write('RANDOM_SEED=%d\n' % RANDOM_SEED)
         f.write('DEBUG=%s\n' % DEBUG)
         f.write('EPSILON=%s\n' % EPSILON)
+        f.write('saved_paths = %s\n' % repr(sorted(saved_paths)))
         f.write('saved_solutions = %s\n' % repr(saved_solutions))
         f.write('saved_points = %s\n' % repr(saved_points))
     
@@ -488,25 +495,32 @@ import numba
 
 #@jit(argtypes=(numba.int32, numba.float_[:,:], numba.float_[:,:], numba.int32[:]))
 #@autojit
-def find_2_3opt_min(N, distances, closest, order):
+def find_2_3opt_min(N, distances, closest, order, dist):
     
     N1 = N - 1
     N2 = N - 2
     #N4 = N - 4
     M = min(N1, MAX_CLOSEST)
-    #M2 = min(N1, MAX_CLOSEST//2)
-    
+    M2 = int(min(N1, math.sqrt(MAX_CLOSEST)))
+    #print 'N, M, M2', N, M, M2
+        
     delta_ = 0.0
     p1_, p2_, p3_ = -1, -1, -1
     opt3_i = -1
     opt3deltas = np.zeros(4)
         
+    counter = count()
+    
     for p1 in xrange(N - 4):
         # for p2 in xrange(p1+2, N - 2):
         #n2 = 0
         n2cnt = 0
         closest1 = closest[p1]
         for n2 in xrange(N2):
+            cnt = next(counter)
+            if cnt % 1000000 == 100000:
+                print 'cnt2=%d,p1=%d,n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, n2, delta_, dist+delta)
+           
             p2 = closest1[n2]
             #n2 += 1
             if p2 < p1 + 2 or p2 > N2: continue
@@ -521,7 +535,9 @@ def find_2_3opt_min(N, distances, closest, order):
                 
             n2cnt += 1
             if n2cnt > M: break 
-         
+       
+    counter2 = count()
+    
     done_p3 = set()     
     for p1 in xrange(N - 6):
         #for p2 in xrange(p1+2, N - 4):
@@ -529,10 +545,14 @@ def find_2_3opt_min(N, distances, closest, order):
         #for p2 in closest[p1]:
         #    if p2 < p1 + 2: continue
         #    if n2 >= M: break
+        n2cnt = 0
         closest1 = closest[p1]
         for n2 in xrange(N1):
+            #cnt = next(counter2)
+            #if cnt % 1000000 == 500:
+            #    print '**cnt=%d,p1=%d,n2=%d,n3=%d' % (cnt, p1, n2, n3) 
+        
             p2 = closest1[n2]
-            #n2 += 1
             if p2 < p1 + 2 or p2 > N - 4: continue 
                         
             #for p3 in xrange(p2+2, N - 2):
@@ -540,6 +560,10 @@ def find_2_3opt_min(N, distances, closest, order):
             closest2 = closest[p2]
             
             for n3 in xrange(N1):
+                cnt = next(counter2)
+                if cnt % 1000000 == 100000:
+                    print 'cnt3=%d,p1=%d,n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, n2, n3, delta_, dist+delta)
+                    
                 p3_1 = closest1[n3]
                 p3_2 = closest2[n3]
                 #n3 += 1
@@ -570,9 +594,15 @@ def find_2_3opt_min(N, distances, closest, order):
                             p1_, p2_, p3_ = p1, p2, p3
                     
                     n3cnt += 1
-                if n3cnt > M: break    
+                if n3cnt > M2: 
+                    #print (n3cnt,),
+                    break 
+                
             n2cnt += 1
-            if n2cnt > M: break
+            
+            if n2cnt > M2: break
+        #print ('*', n2cnt, n2, cnt)
+            
     return delta_, p1_, p2_, p3_, opt3_i                              
     #return delta_, np.array([p1_, p2_, p3_, opt3_i])                   
 
@@ -580,7 +610,7 @@ def find_2_3opt_min(N, distances, closest, order):
 def do3opt_local(N, distances, closest, dist, order):
     
     #assert len(set(order)) == len(order)
-    delta, p1, p2, p3, opt3_i = find_2_3opt_min(N, distances, closest, order)
+    delta, p1, p2, p3, opt3_i = find_2_3opt_min(N, distances, closest, order, dist)
     
     dist1, order1 = dist, order
     #print 'best:', best 
@@ -674,8 +704,9 @@ def search(N, distances, visited, hash_base, dist, order):
 NUM_SOLUTIONS = 40 
 MAX_ITER = 100 
         
-def solve(points):
+def solve(path, points):
     """Return traversal order of points that minimizes distance travelled"""
+    
     
     N, locations, distances, closest = precalculate(points)
         
@@ -690,39 +721,53 @@ def solve(points):
     NUM_GREEDY = min(NUM_GREEDY, N)
     print 'NUM_GREEDY=%d' % NUM_GREEDY 
     
+    last_save_time = [time.time()]
+    
+    def update_if_necessary(title):
+        # Save our valuable result before we assert
+        if not optimum_solutions or dist < optimum_solutions[-1][0]:
+            actual_dist = trip2(distances, order)
+            optimum_solutions.append((actual_dist, hsh, order))
+            print 'best %s:' % title, optimum_solutions[-1][0]
+            tm = time.time()
+            if  tm > last_save_time[0] + 60 * 5:
+                print 'saving:',  tm - last_save_time[0] 
+                save_solution(path, points, actual_dist, order)
+                last_save_time[0] = tm # !@#$
+            if not CLOSE(dist, actual_dist):
+                print '**********************', DIFF(dist, actual_dist)    
+    
     start_list = range(N)
     random.shuffle(start_list)
     for istart, start in enumerate(start_list[:NUM_GREEDY]):
-        print '$%d of %d: %d)' % (istart, NUM_GREEDY, start),
+        print '$%d of %d: %d:' % (istart, NUM_GREEDY, start),
         dist, order = populate_greedy(N, distances, closest, start)
-        #if start % 3 > 0:
-        #    random.shuffle(order)
-        #    dist = trip2(distances, order)
-        
+        print '%.2f)' % dist, 
+           
         normalize(N, order)
+        hsh = np.dot(hash_base, order)   
+        if hsh in visited:   # Done this local search?
+            continue
+        visited.add(hsh) 
+        
+        update_if_necessary('greedy')
          
         assert len(set(order)) == len(order), start
         #actual_dist = trip2(distances, order)
         #assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
-        
-        hsh = np.dot(hash_base, order)   
-        if hsh in visited:   # Done this local search?
-            continue
-        visited.add(hsh)     
+       
         dist, order = local_search(N, distances, closest, dist, order)
-        actual_dist = trip2(distances, order)
-        assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
-        assert dist > 0
-                       
-        assert len(set(order)) == len(order), start
         hsh = np.dot(hash_base, order)
-        #print hash_base.shape, order.shape, hsh.shape
-        #assert hsh not in visited
-        visited.add(hsh)    
+        visited.add(hsh)  
+        update_if_necessary('local_search')
+        
+        actual_dist = trip2(distances, order)
+
+        assert dist > 0
+        assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
+        assert len(set(order)) == len(order), start
         outer_solutions.append((dist, hsh, order))
-        if not optimum_solutions or dist < optimum_solutions[-1][0]:
-            optimum_solutions.append((dist, hsh, order))
-            print 'best:', optimum_solutions[-1][0]
+        
             
     print 'Done greedy', len(outer_solutions), len(optimum_solutions)
     
@@ -733,9 +778,7 @@ def solve(points):
             continue
         dist, order = search(N, distances, visited, hash_base, dist, order)
         assert dist > 0
-        if dist < optimum_solutions[-1][0]:
-            optimum_solutions.append((dist, hsh, order))
-            print 'best:', optimum_solutions[-1][0]
+        update_if_necessary('search', True)
     
     dist, _, order = optimum_solutions[-1]
     
@@ -807,7 +850,7 @@ def solveIt(inputData, path=None):
             obj += length(points[solution[index]], points[solution[index+1]])
 
     assert nodeCount == len(points)        
-    dist, order = solve(points) 
+    dist, order = solve(path, points) 
     print dist
     print [points[i] for i in order]
     
