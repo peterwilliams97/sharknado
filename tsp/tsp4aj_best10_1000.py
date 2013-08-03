@@ -17,17 +17,19 @@ from numba import autojit, jit, double
 import best_history
 
 # 80 forwards, 81 backwards
-VERSION = 220
+VERSION = 230
 
-MAX_CLOSEST = 50
+MAX_CLOSEST = 10
 MAX_N = 30 * 1000
 DEBUG = False
 EPSILON = 1e-6
 RANDOM_SEED = 193 # Not the Nelson!
+MAX_EDGES = 500
 
 print 'VERSION=%d' % VERSION
 print 'MAX_CLOSEST=%d' % MAX_CLOSEST
 print 'MAX_N=%d' % MAX_N
+print 'MAX_EDGES=%d' % MAX_EDGES
 
 random.seed(RANDOM_SEED)
 
@@ -253,7 +255,7 @@ saved_solutions = {}
 def save_solution(path, points, dist, order):
     saved_paths.add(path)
     saved_points[path] = points
-    saved_solutions[path] = (dist, order) 
+    saved_solutions[path] = (dist, list(order)) 
     saved_scores = { path: soln[0] for path, soln in saved_solutions.items() }
     history = HISTORY % VERSION
     print 'Writing history:', history, sys.argv[0]
@@ -263,11 +265,16 @@ def save_solution(path, points, dist, order):
         f.write('VERSION=%d\n' % VERSION)
         f.write('MAX_CLOSEST=%d\n' % MAX_CLOSEST)
         f.write('MAX_N=%d\n' % MAX_N)
+        f.write('MAX_EDGES=%d\n' % MAX_EDGES)
         f.write('RANDOM_SEED=%d\n' % RANDOM_SEED)
         f.write('DEBUG=%s\n' % DEBUG)
         f.write('EPSILON=%s\n' % EPSILON)
         f.write('saved_paths = %s\n' % repr(sorted(saved_paths)))
         f.write('saved_scores = %s\n' % repr(saved_scores))
+        s1 = repr(saved_solutions)
+        assert '...' not in s1, s1
+        s2 = repr(saved_points)
+        assert '...' not in s2, s2
         f.write('saved_solutions = %s\n' % repr(saved_solutions))
         f.write('saved_points = %s\n' % repr(saved_points))
     
@@ -611,9 +618,12 @@ def find_2_3opt_min(N, distances, closest, order, dist):
     #return delta_, np.array([p1_, p2_, p3_, opt3_i])                   
 
 #@autojit
-def get_crossed_edges(N, locations, order):
+def get_crossed_edges(N, locations, closest, order, max_edges):
        
-    print 'get_crossed_edges: N=%d' % N
+    print 'get_crossed_edges: N=%d,max_edges=%d' % (N, max_edges)
+    max_edges = min(N-2, max_edges)
+    print 'max_edges=%d' % (max_edges)
+    
     crossed_edges = []
     
     #def plot_line(i0, i1, color):
@@ -642,8 +652,13 @@ def get_crossed_edges(N, locations, order):
             ai = (ei1[1] - ei0[1])/(ei1[0] - ei0[0])  
             bi = ei0[1] - ai * ei0[0] 
             #assert abs(bi - (ei1[1] - ai * ei1[0])) < EPSILON 
-            
-        for j in xrange(i-2):
+        
+        closest1 = closest[i,:]
+        
+        for n in xrange(max_edges):
+            j = closest1[n]
+            if j > i-2:
+                continue
             ej0 = locations[order[j],:] 
             ej1 = locations[order[j+1],:] 
                                     
@@ -730,9 +745,9 @@ def get_crossed_edges(N, locations, order):
     return crossed_edges        
     
 
-def remove_crossed_edges(N, locations, distances, closest, order, dist):
+def remove_crossed_edges(N, locations, distances, closest, order, dist, max_edges):
     
-    crossed_edges = get_crossed_edges(N, locations, order)
+    crossed_edges = get_crossed_edges(N, locations, closest, order, max_edges)
             
     N2 = N - 2
     
@@ -1002,10 +1017,10 @@ def solve(path, points):
             optimum_solutions.append((actual_dist, hsh, order))
             print 'best %s:' % title, optimum_solutions[-1][0]
             tm = time.time()
-            if  tm > last_save_time[0] + 60 * 5:
+            if tm > last_save_time[0] + 5 * 60: # !@#$%
                 print 'saving:',  tm - last_save_time[0] 
                 save_solution(path, points, actual_dist, order)
-                last_save_time[0] = tm # !@#$
+                last_save_time[0] = tm 
             if not CLOSE(dist, actual_dist):
                 print '**********************', DIFF(dist, actual_dist)  
         
@@ -1027,13 +1042,15 @@ def solve(path, points):
     LONG_EDGE_N = int(math.sqrt(N))
     print 'OUTER_N:', OUTER_N 
     print 'LONG_EDGE_N:', LONG_EDGE_N
+    print 'MAX_EDGES:', MAX_EDGES 
+    
     for out_cnt in xrange(OUTER_N):
         
         dist00 = dist
         
         for cnt in xrange(N):
             dist0 = dist
-            dist, order, num_crossed = remove_crossed_edges(N, locations, distances, closest, order, dist)
+            dist, order, num_crossed = remove_crossed_edges(N, locations, distances, closest, order, dist, MAX_EDGES)
             print '!!!! %.1f => %.1f, delta=%f, numcrossed=%d' % (dist, dist0, dist - dist0, num_crossed)  
             if dist > dist0 - 1:
                 break
@@ -1204,7 +1221,7 @@ partIds = ['WdrlJtJq',
 path_list = [fileNameLookup[id] for id in partIds]
 #path_list.reverse()
 
-for path in path_list: # [3:]:
+for path in path_list: # !@#$%
     print '-' * 80
     print path
     solution = solveIt(loadInputData(path), path)

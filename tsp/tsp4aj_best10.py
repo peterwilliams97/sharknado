@@ -17,13 +17,13 @@ from numba import autojit, jit, double
 import best_history
 
 # 80 forwards, 81 backwards
-VERSION = 200
+VERSION = 212
 
 MAX_CLOSEST = 10
-MAX_N =  30 * 1000
+MAX_N = 30 * 1000
 DEBUG = False
 EPSILON = 1e-6
-RANDOM_SEED = 192 # Not the Nelson!
+RANDOM_SEED = 193 # Not the Nelson!
 
 print 'VERSION=%d' % VERSION
 print 'MAX_CLOSEST=%d' % MAX_CLOSEST
@@ -253,7 +253,7 @@ saved_solutions = {}
 def save_solution(path, points, dist, order):
     saved_paths.add(path)
     saved_points[path] = points
-    saved_solutions[path] = (dist, order) 
+    saved_solutions[path] = (dist, list(order)) 
     saved_scores = { path: soln[0] for path, soln in saved_solutions.items() }
     history = HISTORY % VERSION
     print 'Writing history:', history, sys.argv[0]
@@ -268,6 +268,10 @@ def save_solution(path, points, dist, order):
         f.write('EPSILON=%s\n' % EPSILON)
         f.write('saved_paths = %s\n' % repr(sorted(saved_paths)))
         f.write('saved_scores = %s\n' % repr(saved_scores))
+        s1 = repr(saved_solutions)
+        assert '...' not in s1, s1
+        s2 = repr(saved_points)
+        assert '...' not in s2, s2
         f.write('saved_solutions = %s\n' % repr(saved_solutions))
         f.write('saved_points = %s\n' % repr(saved_points))
     
@@ -610,8 +614,170 @@ def find_2_3opt_min(N, distances, closest, order, dist):
     return delta_, p1_, p2_, p3_, opt3_i                              
     #return delta_, np.array([p1_, p2_, p3_, opt3_i])                   
 
+#@autojit
+def get_crossed_edges(N, locations, order):
+       
+    print 'get_crossed_edges: N=%d' % N
+    crossed_edges = []
+    
+    #def plot_line(i0, i1, color):
+    #    x1 = [locations[order[i],0] for i in i0, i1]
+    #    y1 = [locations[order[i],1] for i in i0, i1]
+    #    plt.plot(x1, y1, marker='.', linestyle='-', color=color)
+        
+    #def plot_pair(i, j):
+    #    plot_line(i, i+1, 'r')   
+    #    plot_line(j, j+1, 'b') 
+    
+    for i in xrange(2, N-1):
+    
+        if i % 100 == 99: print i,
+        ei0 = locations[order[i],:] 
+        ei1 = locations[order[i+1],:]
+        
+        xi_min = min(ei0[0], ei1[0])
+        xi_max = max(ei0[0], ei1[0])
+        yi_min = min(ei0[1], ei1[1])
+        yi_max = max(ei0[1], ei1[1])
+        
+        # y = ax + b : i
+        i_vertical = abs(ei1[0] - ei0[0]) < EPSILON
+        if not i_vertical:
+            ai = (ei1[1] - ei0[1])/(ei1[0] - ei0[0])  
+            bi = ei0[1] - ai * ei0[0] 
+            #assert abs(bi - (ei1[1] - ai * ei1[0])) < EPSILON 
+            
+        for j in xrange(i-2):
+            ej0 = locations[order[j],:] 
+            ej1 = locations[order[j+1],:] 
+                                    
+            xj_min = min(ej0[0], ej1[0])
+            xj_max = max(ej0[0], ej1[0])
+            yj_min = min(ej0[1], ej1[1])
+            yj_max = max(ej0[1], ej1[1])
+            
+            if xj_min > xi_max or xj_max < xi_min:
+                continue
+            if yj_min > yi_max or yj_max < yi_min:
+                continue    
+  
+            # y = ax + b : j
+            j_vertical = abs(ej1[0] - ej0[0]) < EPSILON
+            if not j_vertical:
+                aj = (ej1[1] - ej0[1])/(ej1[0] - ej0[0])  
+                bj = ej0[1] - aj * ej0[0] 
+                #assert abs(bj - (ej1[1] - aj * ej1[0])) < EPSILON
+                
+            # Intersection of x values
+            x_min = max(xi_min, xj_min)
+            x_max = min(xi_max, xj_max)
+            
+            # Handle the vertical cases
+            if i_vertical or j_vertical:
+                if i_vertical and j_vertical:
+                    if xj_min == xi_min:
+                        crossed_edges.append((j, i))
+                        continue
 
-def find_2_3opt_long_egdes(N, distances, closest, order, dist):
+            # yi at min_x (left of intersection)
+            if i_vertical:
+                yi_min_x = yi_min 
+                yi_max_x = yi_max
+            else:    
+                yi_min_x = ai * x_min + bi 
+                yi_max_x = ai * x_max + bi 
+                
+            # yj at min_x (left of intersection)
+            if j_vertical:
+                yj_min_x = yj_min 
+                yj_max_x = yj_max
+            else: 
+                yj_min_x = aj * x_min + bj 
+                yj_max_x = aj * x_max + bj 
+
+            # Crossed?
+            if ( (yi_min_x >= yj_min_x and yi_max_x <= yj_max_x) 
+              or (yi_min_x <= yj_min_x and yi_max_x >= yj_max_x)):
+                
+                #print ei0, ei1 
+                #print ej0, ej1
+                #exit() 
+                crossed_edges.append((j, i))
+                
+                
+                #    ei0 = np.array(locations[order[i],:]) 
+                #    ei1 = np.array(locations[order[i+1],:])
+                #    ej0 = np.array(locations[order[j],:]) 
+                #    ej1 = np.array(locations[order[j+1],:]) 
+                #    print '~~ %d %d : %s %s' % (i, j, (ei0, ei1), (ej0, ej1))
+                #    print ai, bi
+                #    print aj, bj
+                #    print x_min, yi_min_x, yj_min_x
+                #    print x_max, yi_max_x, yj_max_x
+                #    plot_pair(i, j)
+                #    plt.show() 
+
+    
+    print 'found %d crossed edges' % len(crossed_edges)
+
+    for ij in crossed_edges:
+        i = ij[0]
+        j = ij[1]
+        ei0 = np.array(locations[order[i],:]) 
+        ei1 = np.array(locations[order[i+1],:])
+        ej0 = np.array(locations[order[j],:]) 
+        ej1 = np.array(locations[order[j+1],:]) 
+        print '~~ %d %d : %s %s' % (i, j, (ei0, ei1), (ej0, ej1))
+        #plot_pair(i, j)
+    #plt.show()    
+    #exit()    
+    return crossed_edges        
+    
+
+def remove_crossed_edges(N, locations, distances, closest, order, dist):
+    
+    crossed_edges = get_crossed_edges(N, locations, order)
+            
+    N2 = N - 2
+    
+    cross_vertices = set()
+    for p1, p2 in crossed_edges:
+        cross_vertices.add(p1)
+        cross_vertices.add(p2)
+    cross_vertices = sorted(cross_vertices)    
+            
+    for p1 in cross_vertices:
+        delta_ = 0.0
+        p2_ = -1
+        closest1 = closest[p1]
+        for n2 in xrange(N - 1):
+            p2 = closest1[n2]
+            if abs(p1 - p2) < 2 or p2 >= N2: continue
+                            
+            w1, w2 = order[p1], order[p1 + 1]   # a b
+            w3, w4 = order[p2], order[p2 + 1]   # c d 
+            delta = (distances[w1, w3] + distances[w2, w4]) - (distances[w1, w2] + distances[w3, w4])
+                        
+            if delta < delta_:
+                delta_ = delta
+                p2_ = p2
+                
+        if delta_ < 0.0:
+           
+            assert p1 >= 0, p1
+            assert p2_ >= 0, p2_
+            if p2_ < p1:
+                p1, p2_ = p2_, p1
+            dist, order = do2opt(N, distances, dist, order, delta_, p1, p2_, p1+1, p2_+1)
+            print '@ p1=%d,p2=%d,delta=%f,dist=%f' % (p1, p2, delta_, dist)
+        else:
+            print 'No improvement'
+    
+    return dist, order, len(crossed_edges)    
+       
+    
+    
+def find_2_3opt_long_edges(N, distances, closest, order, dist):
     
     edge_lengths = [distances[order[i], order[i+1]] for i in xrange(N-1)]
     edge_lengths.append(distances[order[N-1], order[0]])
@@ -627,7 +793,7 @@ def find_2_3opt_long_egdes(N, distances, closest, order, dist):
     N2 = N - 2
     #N4 = N - 4
     M = min(N1, MAX_CLOSEST)
-    M2 = int(min(N1, math.sqrt(MAX_CLOSEST)))
+    M2 = int(min(N1, 2 * math.sqrt(MAX_CLOSEST)))
         
     delta_ = 0.0
     p1_, p2_, p3_ = -1, -1, -1
@@ -723,7 +889,7 @@ def find_2_3opt_long_egdes(N, distances, closest, order, dist):
     
 def do3opt_local(N, distances, closest, dist, order, long_edges):
     
-    find_min = find_2_3opt_long_egdes if long_edges else find_2_3opt_min
+    find_min = find_2_3opt_long_edges if long_edges else find_2_3opt_min
     
     #assert len(set(order)) == len(order)
     delta, p1, p2, p3, opt3_i = find_min(N, distances, closest, order, dist)
@@ -833,17 +999,17 @@ def solve(path, points):
         
     last_save_time = [time.time()]
     
-    def update_if_necessary(title, actual_dist):
+    def update_if_necessary(title, actual_dist, hsh):
         # Save our valuable result before we assert
         if not optimum_solutions or actual_dist < optimum_solutions[-1][0]:
             #actual_dist = trip2(distances, order)
             optimum_solutions.append((actual_dist, hsh, order))
             print 'best %s:' % title, optimum_solutions[-1][0]
             tm = time.time()
-            if  tm > last_save_time[0] + 60 * 5:
+            if tm > last_save_time[0] + 5 * 60: # !@#$%
                 print 'saving:',  tm - last_save_time[0] 
                 save_solution(path, points, actual_dist, order)
-                last_save_time[0] = tm # !@#$
+                last_save_time[0] = tm 
             if not CLOSE(dist, actual_dist):
                 print '**********************', DIFF(dist, actual_dist)  
         
@@ -866,22 +1032,39 @@ def solve(path, points):
     print 'OUTER_N:', OUTER_N 
     print 'LONG_EDGE_N:', LONG_EDGE_N
     for out_cnt in xrange(OUTER_N):
+        
         dist00 = dist
-        for cnt in xrange(LONG_EDGE_N):
-            hsh = np.dot(hash_base, order)
-            #if hsh in visited:   # Done this local search?
-            #    print '*** visited' 
-            #    continue
-            visited.add(hsh)  
+        
+        for cnt in xrange(N):
             dist0 = dist
-            dist, order = local_search(N, distances, closest, dist, order, True)
-            dist = trip2(distances, order)
-                   
-            update_if_necessary('local_search: long_edges: cnt=%d' % cnt, dist)
-            print 'Long edges: cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (cnt, LONG_EDGE_N, dist0, dist, dist-dist0)
-            if dist > dist0 - 1.0:
-                print '@@@ No long edge search improvements'
+            dist, order, num_crossed = remove_crossed_edges(N, locations, distances, closest, order, dist)
+            print '!!!! %.1f => %.1f, delta=%f, numcrossed=%d' % (dist, dist0, dist - dist0, num_crossed)  
+            if dist > dist0 - 1:
                 break
+               
+            dist = trip2(distances, order)
+            hsh = np.dot(hash_base, order)
+            update_if_necessary('local_search: remove_crossed_edges: cnt=%d' % cnt, dist, hsh)
+        if num_crossed != 0:
+            print '!!!!!!!!!!! num_crossed:',  num_crossed
+        #assert num_crossed == 0, num_crossed
+        
+        if False:
+            for cnt in xrange(LONG_EDGE_N):
+                hsh = np.dot(hash_base, order)
+                #if hsh in visited:   # Done this local search?
+                #    print '*** visited' 
+                #    continue
+                visited.add(hsh)  
+                dist0 = dist
+                dist, order = local_search(N, distances, closest, dist, order, True)
+                dist = trip2(distances, order)
+                       
+                update_if_necessary('local_search: long_edges: cnt=%d' % cnt, dist)
+                print 'Long edges: cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (cnt, LONG_EDGE_N, dist0, dist, dist-dist0)
+                if dist > dist0 - 1.0:
+                    print '@@@ No long edge search improvements'
+                    break
                 
         dist0 = dist  
         dist, order = local_search(N, distances, closest, dist, order, False)
@@ -890,7 +1073,7 @@ def solve(path, points):
         dist = trip2(distances, order)
         hsh = np.dot(hash_base, order)
         visited.add(hsh)  
-        update_if_necessary('local_search: minimum', dist)
+        update_if_necessary('local_search: minimum', dist, hsh)
         if dist > dist00 - 1.0:
             break
        
@@ -1025,7 +1208,7 @@ partIds = ['WdrlJtJq',
 path_list = [fileNameLookup[id] for id in partIds]
 #path_list.reverse()
 
-for path in path_list[2:]:
+for path in path_list: # !@#$%
     print '-' * 80
     print path
     solution = solveIt(loadInputData(path), path)

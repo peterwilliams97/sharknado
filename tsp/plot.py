@@ -1,5 +1,5 @@
-#from best_history import VERSION, saved_solutions, saved_points
-from history210 import VERSION, saved_solutions, saved_points
+from best_history import VERSION, saved_solutions, saved_points
+#from history210 import VERSION, saved_solutions, saved_points
 import sys, os
 import igraph
 
