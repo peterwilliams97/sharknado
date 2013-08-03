@@ -16,18 +16,20 @@ from numba import autojit, jit, double
 
 import best_history
 
-# 80 forwards, 81 backwards
-VERSION = 212
+# 250 forwards, 251 backwards
+VERSION = 250
 
-MAX_CLOSEST = 10
+MAX_CLOSEST = 2000
 MAX_N = 30 * 1000
 DEBUG = False
 EPSILON = 1e-6
 RANDOM_SEED = 193 # Not the Nelson!
+MAX_EDGES = 1000
 
 print 'VERSION=%d' % VERSION
 print 'MAX_CLOSEST=%d' % MAX_CLOSEST
 print 'MAX_N=%d' % MAX_N
+print 'MAX_EDGES=%d' % MAX_EDGES
 
 random.seed(RANDOM_SEED)
 
@@ -263,6 +265,7 @@ def save_solution(path, points, dist, order):
         f.write('VERSION=%d\n' % VERSION)
         f.write('MAX_CLOSEST=%d\n' % MAX_CLOSEST)
         f.write('MAX_N=%d\n' % MAX_N)
+        f.write('MAX_EDGES=%d\n' % MAX_EDGES)
         f.write('RANDOM_SEED=%d\n' % RANDOM_SEED)
         f.write('DEBUG=%s\n' % DEBUG)
         f.write('EPSILON=%s\n' % EPSILON)
@@ -527,7 +530,7 @@ def find_2_3opt_min(N, distances, closest, order, dist):
         for n2 in xrange(N2):
             cnt = next(counter)
             if cnt % 1000000 == 100000:
-                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, n2, delta_, dist+delta)
+                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, n2, dist+delta_, delta_)
            
             p2 = closest1[n2]
             #n2 += 1
@@ -570,7 +573,7 @@ def find_2_3opt_min(N, distances, closest, order, dist):
             for n3 in xrange(N1):
                 cnt = next(counter2)
                 if cnt % 1000000 == 100000:
-                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, p3, n2, n3, delta_, dist+delta)
+                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, p3, n2, n3, dist+delta_, delta_)
                     
                 p3_1 = closest1[n3]
                 p3_2 = closest2[n3]
@@ -615,9 +618,12 @@ def find_2_3opt_min(N, distances, closest, order, dist):
     #return delta_, np.array([p1_, p2_, p3_, opt3_i])                   
 
 #@autojit
-def get_crossed_edges(N, locations, order):
+def get_crossed_edges(N, locations, closest, order, max_edges):
        
-    print 'get_crossed_edges: N=%d' % N
+    print 'get_crossed_edges: N=%d,max_edges=%d' % (N, max_edges)
+    max_edges = min(N-2, max_edges)
+    print 'max_edges=%d' % (max_edges)
+    
     crossed_edges = []
     
     #def plot_line(i0, i1, color):
@@ -646,8 +652,13 @@ def get_crossed_edges(N, locations, order):
             ai = (ei1[1] - ei0[1])/(ei1[0] - ei0[0])  
             bi = ei0[1] - ai * ei0[0] 
             #assert abs(bi - (ei1[1] - ai * ei1[0])) < EPSILON 
-            
-        for j in xrange(i-2):
+        
+        closest1 = closest[i,:]
+        
+        for n in xrange(max_edges):
+            j = closest1[n]
+            if j > i-2:
+                continue
             ej0 = locations[order[j],:] 
             ej1 = locations[order[j+1],:] 
                                     
@@ -718,8 +729,6 @@ def get_crossed_edges(N, locations, order):
                 #    plt.show() 
 
     
-    print 'found %d crossed edges' % len(crossed_edges)
-
     for ij in crossed_edges:
         i = ij[0]
         j = ij[1]
@@ -731,12 +740,14 @@ def get_crossed_edges(N, locations, order):
         #plot_pair(i, j)
     #plt.show()    
     #exit()    
+    print 'found %d crossed edges' % len(crossed_edges)
+    
     return crossed_edges        
     
 
-def remove_crossed_edges(N, locations, distances, closest, order, dist):
+def remove_crossed_edges(N, locations, distances, closest, order, dist, max_edges):
     
-    crossed_edges = get_crossed_edges(N, locations, order)
+    crossed_edges = get_crossed_edges(N, locations, closest, order, max_edges)
             
     N2 = N - 2
     
@@ -746,7 +757,7 @@ def remove_crossed_edges(N, locations, distances, closest, order, dist):
         cross_vertices.add(p2)
     cross_vertices = sorted(cross_vertices)    
             
-    for p1 in cross_vertices:
+    for i, p1 in enumerate(cross_vertices):
         delta_ = 0.0
         p2_ = -1
         closest1 = closest[p1]
@@ -769,9 +780,8 @@ def remove_crossed_edges(N, locations, distances, closest, order, dist):
             if p2_ < p1:
                 p1, p2_ = p2_, p1
             dist, order = do2opt(N, distances, dist, order, delta_, p1, p2_, p1+1, p2_+1)
-            print '@ p1=%d,p2=%d,delta=%f,dist=%f' % (p1, p2, delta_, dist)
-        else:
-            print 'No improvement'
+            print '@i=%d: p1=%d,p2=%d,dist=%.1f,delta=%.1f' % (i, p1, p2, dist, delta_)
+       
     
     return dist, order, len(crossed_edges)    
        
@@ -808,7 +818,7 @@ def find_2_3opt_long_edges(N, distances, closest, order, dist):
         for n2 in xrange(N2):
             cnt = next(counter)
             if cnt % 1000000 == 100000:
-                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, n2, delta_, dist+delta)
+                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, n2, dist+delta_, delta_)
            
             p2 = closest1[n2]
             #n2 += 1
@@ -847,7 +857,7 @@ def find_2_3opt_long_edges(N, distances, closest, order, dist):
             for n3 in xrange(N1):
                 cnt = next(counter2)
                 if cnt % 1000000 == 100000:
-                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, p3, n2, n3, delta_, dist+delta)
+                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, p3, n2, n3, dist+delta, delta_)
                     
                 p3_1 = closest1[n3]
                 p3_2 = closest2[n3]
@@ -1031,14 +1041,16 @@ def solve(path, points):
     LONG_EDGE_N = int(math.sqrt(N))
     print 'OUTER_N:', OUTER_N 
     print 'LONG_EDGE_N:', LONG_EDGE_N
+    print 'MAX_EDGES:', MAX_EDGES 
+    
     for out_cnt in xrange(OUTER_N):
         
         dist00 = dist
         
         for cnt in xrange(N):
             dist0 = dist
-            dist, order, num_crossed = remove_crossed_edges(N, locations, distances, closest, order, dist)
-            print '!!!! %.1f => %.1f, delta=%f, numcrossed=%d' % (dist, dist0, dist - dist0, num_crossed)  
+            dist, order, num_crossed = remove_crossed_edges(N, locations, distances, closest, order, dist, MAX_EDGES)
+            print '!!!! %.1f => %.1f, delta=%f, numcrossed=%d' % (dist0, dist, dist - dist0, num_crossed)  
             if dist > dist0 - 1:
                 break
                
@@ -1049,7 +1061,7 @@ def solve(path, points):
             print '!!!!!!!!!!! num_crossed:',  num_crossed
         #assert num_crossed == 0, num_crossed
         
-        if False:
+        if True:
             for cnt in xrange(LONG_EDGE_N):
                 hsh = np.dot(hash_base, order)
                 #if hsh in visited:   # Done this local search?
@@ -1060,12 +1072,13 @@ def solve(path, points):
                 dist, order = local_search(N, distances, closest, dist, order, True)
                 dist = trip2(distances, order)
                        
-                update_if_necessary('local_search: long_edges: cnt=%d' % cnt, dist)
+                update_if_necessary('local_search: long_edges: cnt=%d' % cnt, dist, hsh)
                 print 'Long edges: cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (cnt, LONG_EDGE_N, dist0, dist, dist-dist0)
                 if dist > dist0 - 1.0:
                     print '@@@ No long edge search improvements'
                     break
-                
+        
+        
         dist0 = dist  
         dist, order = local_search(N, distances, closest, dist, order, False)
         print 'Local: out_cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (out_cnt, OUTER_N, dist0, dist, dist-dist0)

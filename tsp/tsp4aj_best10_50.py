@@ -16,18 +16,20 @@ from numba import autojit, jit, double
 
 import best_history
 
-# 80 forwards, 81 backwards
-VERSION = 212
+# 230 forwards, 231 backwards
+VERSION = 241
 
 MAX_CLOSEST = 10
 MAX_N = 30 * 1000
 DEBUG = False
 EPSILON = 1e-6
 RANDOM_SEED = 193 # Not the Nelson!
+MAX_EDGES = 50
 
 print 'VERSION=%d' % VERSION
 print 'MAX_CLOSEST=%d' % MAX_CLOSEST
 print 'MAX_N=%d' % MAX_N
+print 'MAX_EDGES=%d' % MAX_EDGES
 
 random.seed(RANDOM_SEED)
 
@@ -263,6 +265,7 @@ def save_solution(path, points, dist, order):
         f.write('VERSION=%d\n' % VERSION)
         f.write('MAX_CLOSEST=%d\n' % MAX_CLOSEST)
         f.write('MAX_N=%d\n' % MAX_N)
+        f.write('MAX_EDGES=%d\n' % MAX_EDGES)
         f.write('RANDOM_SEED=%d\n' % RANDOM_SEED)
         f.write('DEBUG=%s\n' % DEBUG)
         f.write('EPSILON=%s\n' % EPSILON)
@@ -504,7 +507,7 @@ import numba
 
 #@jit(argtypes=(numba.int32, numba.float_[:,:], numba.float_[:,:], numba.int32[:]))
 #@autojit
-def find_2_3opt_min(N, distances, closest, order, dist):
+def find_2_3opt_min(N, distances, closest, order, dist, do3):
     
     N1 = N - 1
     N2 = N - 2
@@ -527,7 +530,7 @@ def find_2_3opt_min(N, distances, closest, order, dist):
         for n2 in xrange(N2):
             cnt = next(counter)
             if cnt % 1000000 == 100000:
-                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, n2, delta_, dist+delta)
+                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, n2, dist+delta_, delta_)
            
             p2 = closest1[n2]
             #n2 += 1
@@ -544,80 +547,83 @@ def find_2_3opt_min(N, distances, closest, order, dist):
             n2cnt += 1
             if n2cnt > M: break 
        
-    counter2 = count()
-    
-    done_p3 = set()     
-    for p1 in xrange(N - 6):
-        #for p2 in xrange(p1+2, N - 4):
-        #n2 = 0
-        #for p2 in closest[p1]:
-        #    if p2 < p1 + 2: continue
-        #    if n2 >= M: break
-        n2cnt = 0
-        closest1 = closest[p1]
-        for n2 in xrange(N1):
-            #cnt = next(counter2)
-            #if cnt % 1000000 == 500:
-            #    print '**cnt=%d,p1=%d,n2=%d,n3=%d' % (cnt, p1, n2, n3) 
-        
-            p2 = closest1[n2]
-            if p2 < p1 + 2 or p2 > N - 4: continue 
+    if do3:
+        counter2 = count()
+        done_p3 = set()     
+        for p1 in xrange(N - 6):
+            #for p2 in xrange(p1+2, N - 4):
+            #n2 = 0
+            #for p2 in closest[p1]:
+            #    if p2 < p1 + 2: continue
+            #    if n2 >= M: break
+            n2cnt = 0
+            closest1 = closest[p1]
+            for n2 in xrange(N1):
+                #cnt = next(counter2)
+                #if cnt % 1000000 == 500:
+                #    print '**cnt=%d,p1=%d,n2=%d,n3=%d' % (cnt, p1, n2, n3) 
+            
+                p2 = closest1[n2]
+                if p2 < p1 + 2 or p2 > N - 4: continue 
+                            
+                #for p3 in xrange(p2+2, N - 2):
+                n3cnt = 0
+                closest2 = closest[p2]
+                
+                for n3 in xrange(N1):
+                    cnt = next(counter2)
+                    if cnt % 1000000 == 100000:
+                        print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, p3, n2, n3, dist+delta_, delta_)
                         
-            #for p3 in xrange(p2+2, N - 2):
-            n3cnt = 0
-            closest2 = closest[p2]
-            
-            for n3 in xrange(N1):
-                cnt = next(counter2)
-                if cnt % 1000000 == 100000:
-                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, p3, n2, n3, delta_, dist+delta)
+                    p3_1 = closest1[n3]
+                    p3_2 = closest2[n3]
+                    #n3 += 1
                     
-                p3_1 = closest1[n3]
-                p3_2 = closest2[n3]
-                #n3 += 1
-                
-                #p3_all = []
-                #if p3_1 >= p2 + 2 and p3_1 < N -2: p3_all.append(p3_1)
-                #if p3_2 >= p2 + 2 and p3_2 < N -2: p3_all.append(p3_2)
-                
-                for p3 in (p3_1, p3_2):
-                    if not (p3 >= p2 + 2 and p3 < N2): continue
-                    if (p1,p2,p3) in done_p3: continue
-                    done_p3.add((p1,p2,p3))
-                                          
-                    w1, w2 = order[p1], order[p1+1]   # a b
-                    w3, w4 = order[p2], order[p2+1]   # c d  
-                    w5, w6 = order[p3], order[p3+1]   # e f  
+                    #p3_all = []
+                    #if p3_1 >= p2 + 2 and p3_1 < N -2: p3_all.append(p3_1)
+                    #if p3_2 >= p2 + 2 and p3_2 < N -2: p3_all.append(p3_2)
                     
-                    bf = distances[w1, w2] + distances[w3, w4] + distances[w5, w6] # Original distance 
-                    opt3deltas[0] = distances[w1, w4] + distances[w2, w6] + distances[w3, w5] - bf
-                    opt3deltas[1] = distances[w1, w5] + distances[w2, w4] + distances[w3, w6] - bf
-                    opt3deltas[2] = distances[w1, w3] + distances[w2, w5] + distances[w4, w6] - bf
-                    opt3deltas[3]= distances[w1, w4] + distances[w2, w5] + distances[w3, w6] - bf 
-                   
-                    for i in xrange(4):
-                        if opt3deltas[i] < delta_:
-                            delta_ = opt3deltas[i]
-                            opt3_i = i
-                            p1_, p2_, p3_ = p1, p2, p3
+                    for p3 in (p3_1, p3_2):
+                        if not (p3 >= p2 + 2 and p3 < N2): continue
+                        if (p1,p2,p3) in done_p3: continue
+                        done_p3.add((p1,p2,p3))
+                                              
+                        w1, w2 = order[p1], order[p1+1]   # a b
+                        w3, w4 = order[p2], order[p2+1]   # c d  
+                        w5, w6 = order[p3], order[p3+1]   # e f  
+                        
+                        bf = distances[w1, w2] + distances[w3, w4] + distances[w5, w6] # Original distance 
+                        opt3deltas[0] = distances[w1, w4] + distances[w2, w6] + distances[w3, w5] - bf
+                        opt3deltas[1] = distances[w1, w5] + distances[w2, w4] + distances[w3, w6] - bf
+                        opt3deltas[2] = distances[w1, w3] + distances[w2, w5] + distances[w4, w6] - bf
+                        opt3deltas[3]= distances[w1, w4] + distances[w2, w5] + distances[w3, w6] - bf 
+                       
+                        for i in xrange(4):
+                            if opt3deltas[i] < delta_:
+                                delta_ = opt3deltas[i]
+                                opt3_i = i
+                                p1_, p2_, p3_ = p1, p2, p3
+                        
+                        n3cnt += 1
+                    if n3cnt > M2: 
+                        #print (n3cnt,),
+                        break 
                     
-                    n3cnt += 1
-                if n3cnt > M2: 
-                    #print (n3cnt,),
-                    break 
+                n2cnt += 1
                 
-            n2cnt += 1
-            
-            if n2cnt > M2: break
-        #print ('*', n2cnt, n2, cnt)
+                if n2cnt > M2: break
+            #print ('*', n2cnt, n2, cnt)
             
     return delta_, p1_, p2_, p3_, opt3_i                              
     #return delta_, np.array([p1_, p2_, p3_, opt3_i])                   
 
 #@autojit
-def get_crossed_edges(N, locations, order):
+def get_crossed_edges(N, locations, closest, order, max_edges):
        
-    print 'get_crossed_edges: N=%d' % N
+    print 'get_crossed_edges: N=%d,max_edges=%d' % (N, max_edges)
+    max_edges = min(N-2, max_edges)
+    print 'max_edges=%d' % (max_edges)
+    
     crossed_edges = []
     
     #def plot_line(i0, i1, color):
@@ -646,8 +652,13 @@ def get_crossed_edges(N, locations, order):
             ai = (ei1[1] - ei0[1])/(ei1[0] - ei0[0])  
             bi = ei0[1] - ai * ei0[0] 
             #assert abs(bi - (ei1[1] - ai * ei1[0])) < EPSILON 
-            
-        for j in xrange(i-2):
+        
+        closest1 = closest[i,:]
+        
+        for n in xrange(max_edges):
+            j = closest1[n]
+            if j > i-2:
+                continue
             ej0 = locations[order[j],:] 
             ej1 = locations[order[j+1],:] 
                                     
@@ -718,8 +729,6 @@ def get_crossed_edges(N, locations, order):
                 #    plt.show() 
 
     
-    print 'found %d crossed edges' % len(crossed_edges)
-
     for ij in crossed_edges:
         i = ij[0]
         j = ij[1]
@@ -731,12 +740,14 @@ def get_crossed_edges(N, locations, order):
         #plot_pair(i, j)
     #plt.show()    
     #exit()    
+    print 'found %d crossed edges' % len(crossed_edges)
+    
     return crossed_edges        
     
 
-def remove_crossed_edges(N, locations, distances, closest, order, dist):
+def remove_crossed_edges(N, locations, distances, closest, order, dist, max_edges):
     
-    crossed_edges = get_crossed_edges(N, locations, order)
+    crossed_edges = get_crossed_edges(N, locations, closest, order, max_edges)
             
     N2 = N - 2
     
@@ -746,7 +757,7 @@ def remove_crossed_edges(N, locations, distances, closest, order, dist):
         cross_vertices.add(p2)
     cross_vertices = sorted(cross_vertices)    
             
-    for p1 in cross_vertices:
+    for i, p1 in enumerate(cross_vertices):
         delta_ = 0.0
         p2_ = -1
         closest1 = closest[p1]
@@ -769,15 +780,14 @@ def remove_crossed_edges(N, locations, distances, closest, order, dist):
             if p2_ < p1:
                 p1, p2_ = p2_, p1
             dist, order = do2opt(N, distances, dist, order, delta_, p1, p2_, p1+1, p2_+1)
-            print '@ p1=%d,p2=%d,delta=%f,dist=%f' % (p1, p2, delta_, dist)
-        else:
-            print 'No improvement'
+            print '@i=%d: p1=%d,p2=%d,dist=%.1f,delta=%.1f' % (i, p1, p2, dist, delta_)
+       
     
     return dist, order, len(crossed_edges)    
        
     
     
-def find_2_3opt_long_edges(N, distances, closest, order, dist):
+def find_2_3opt_long_edges(N, distances, closest, order, dist, do3):
     
     edge_lengths = [distances[order[i], order[i+1]] for i in xrange(N-1)]
     edge_lengths.append(distances[order[N-1], order[0]])
@@ -808,7 +818,7 @@ def find_2_3opt_long_edges(N, distances, closest, order, dist):
         for n2 in xrange(N2):
             cnt = next(counter)
             if cnt % 1000000 == 100000:
-                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, n2, delta_, dist+delta)
+                print '_cnt2=%d,(p1=%d,p2=%d),n2=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, n2, dist+delta_, delta_)
            
             p2 = closest1[n2]
             #n2 += 1
@@ -825,74 +835,74 @@ def find_2_3opt_long_edges(N, distances, closest, order, dist):
             n2cnt += 1
             #if n2cnt > M: break 
        
-    counter2 = count()
-    
-    done_p3 = set()     
-    for p1 in edges:
+    if do3:
+        counter2 = count()
+        done_p3 = set()     
+        for p1 in edges:
 
-        n2cnt = 0
-        closest1 = closest[p1]
-        for n2 in xrange(N1):
-            #cnt = next(counter2)
-            #if cnt % 1000000 == 500:
-            #    print '**cnt=%d,p1=%d,n2=%d,n3=%d' % (cnt, p1, n2, n3) 
-        
-            p2 = closest1[n2]
-            if p2 < p1 + 2 or p2 > N - 4: continue 
+            n2cnt = 0
+            closest1 = closest[p1]
+            for n2 in xrange(N1):
+                #cnt = next(counter2)
+                #if cnt % 1000000 == 500:
+                #    print '**cnt=%d,p1=%d,n2=%d,n3=%d' % (cnt, p1, n2, n3) 
+            
+                p2 = closest1[n2]
+                if p2 < p1 + 2 or p2 > N - 4: continue 
+                            
+                #for p3 in xrange(p2+2, N - 2):
+                n3cnt = 0
+                closest2 = closest[p2]
+                
+                for n3 in xrange(N1):
+                    cnt = next(counter2)
+                    if cnt % 1000000 == 100000:
+                        print '_cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, p3, n2, n3, delta_, dist+delta)
                         
-            #for p3 in xrange(p2+2, N - 2):
-            n3cnt = 0
-            closest2 = closest[p2]
-            
-            for n3 in xrange(N1):
-                cnt = next(counter2)
-                if cnt % 1000000 == 100000:
-                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, p3, n2, n3, delta_, dist+delta)
+                    p3_1 = closest1[n3]
+                    p3_2 = closest2[n3]
                     
-                p3_1 = closest1[n3]
-                p3_2 = closest2[n3]
+                    for p3 in (p3_1, p3_2):
+                        if not (p3 >= p2 + 2 and p3 < N2): continue
+                        if (p1,p2,p3) in done_p3: continue
+                        done_p3.add((p1,p2,p3))
+                                              
+                        w1, w2 = order[p1], order[p1+1]   # a b
+                        w3, w4 = order[p2], order[p2+1]   # c d  
+                        w5, w6 = order[p3], order[p3+1]   # e f  
+                        
+                        bf = distances[w1, w2] + distances[w3, w4] + distances[w5, w6] # Original distance 
+                        opt3deltas[0] = distances[w1, w4] + distances[w2, w6] + distances[w3, w5] - bf
+                        opt3deltas[1] = distances[w1, w5] + distances[w2, w4] + distances[w3, w6] - bf
+                        opt3deltas[2] = distances[w1, w3] + distances[w2, w5] + distances[w4, w6] - bf
+                        opt3deltas[3]= distances[w1, w4] + distances[w2, w5] + distances[w3, w6] - bf 
+                       
+                        for i in xrange(4):
+                            if opt3deltas[i] < delta_:
+                                delta_ = opt3deltas[i]
+                                opt3_i = i
+                                p1_, p2_, p3_ = p1, p2, p3
+                        
+                        n3cnt += 1
+                    if n3cnt > N_EDGES: 
+                        #print (n3cnt,),
+                        break 
+                    
+                n2cnt += 1
                 
-                for p3 in (p3_1, p3_2):
-                    if not (p3 >= p2 + 2 and p3 < N2): continue
-                    if (p1,p2,p3) in done_p3: continue
-                    done_p3.add((p1,p2,p3))
-                                          
-                    w1, w2 = order[p1], order[p1+1]   # a b
-                    w3, w4 = order[p2], order[p2+1]   # c d  
-                    w5, w6 = order[p3], order[p3+1]   # e f  
-                    
-                    bf = distances[w1, w2] + distances[w3, w4] + distances[w5, w6] # Original distance 
-                    opt3deltas[0] = distances[w1, w4] + distances[w2, w6] + distances[w3, w5] - bf
-                    opt3deltas[1] = distances[w1, w5] + distances[w2, w4] + distances[w3, w6] - bf
-                    opt3deltas[2] = distances[w1, w3] + distances[w2, w5] + distances[w4, w6] - bf
-                    opt3deltas[3]= distances[w1, w4] + distances[w2, w5] + distances[w3, w6] - bf 
-                   
-                    for i in xrange(4):
-                        if opt3deltas[i] < delta_:
-                            delta_ = opt3deltas[i]
-                            opt3_i = i
-                            p1_, p2_, p3_ = p1, p2, p3
-                    
-                    n3cnt += 1
-                if n3cnt > N_EDGES: 
-                    #print (n3cnt,),
-                    break 
-                
-            n2cnt += 1
-            
-            if n2cnt > N_EDGES: break
-        #print ('*', n2cnt, n2, cnt)
+                if n2cnt > N_EDGES: break
+            #print ('*', n2cnt, n2, cnt)
             
     return delta_, p1_, p2_, p3_, opt3_i                              
     #return delta_, np.array([p1_, p2_, p3_, opt3_i])                   
 
     
-def do3opt_local(N, distances, closest, dist, order, long_edges):
+def do3opt_local(N, distances, closest, dist, order, long_edges, do3):
     
     find_min = find_2_3opt_long_edges if long_edges else find_2_3opt_min
     
     #assert len(set(order)) == len(order)
-    delta, p1, p2, p3, opt3_i = find_min(N, distances, closest, order, dist)
+    delta, p1, p2, p3, opt3_i = find_min(N, distances, closest, order, dist, do3)
     
     dist1, order1 = dist, order
     #print 'best:', best 
@@ -906,11 +916,11 @@ def do3opt_local(N, distances, closest, dist, order, long_edges):
         
     return dist1, order1 
 
-def local_search(N, distances, closest, dist, order, long_edges):
+def local_search(N, distances, closest, dist, order, long_edges, do3):
     
     changed = False
     while True:
-        dist1, order1 = do3opt_local(N, distances, closest, dist, order, long_edges)    
+        dist1, order1 = do3opt_local(N, distances, closest, dist, order, long_edges, do3)    
         assert dist1 <= dist
         if dist1 == dist:
             break
@@ -1031,14 +1041,18 @@ def solve(path, points):
     LONG_EDGE_N = int(math.sqrt(N))
     print 'OUTER_N:', OUTER_N 
     print 'LONG_EDGE_N:', LONG_EDGE_N
+    print 'MAX_EDGES:', MAX_EDGES 
+    
+    do3 = False
+    
     for out_cnt in xrange(OUTER_N):
         
         dist00 = dist
         
         for cnt in xrange(N):
             dist0 = dist
-            dist, order, num_crossed = remove_crossed_edges(N, locations, distances, closest, order, dist)
-            print '!!!! %.1f => %.1f, delta=%f, numcrossed=%d' % (dist, dist0, dist - dist0, num_crossed)  
+            dist, order, num_crossed = remove_crossed_edges(N, locations, distances, closest, order, dist, MAX_EDGES)
+            print '!!!! %.1f => %.1f, delta=%f, numcrossed=%d' % (dist0, dist, dist - dist0, num_crossed)  
             if dist > dist0 - 1:
                 break
                
@@ -1049,7 +1063,7 @@ def solve(path, points):
             print '!!!!!!!!!!! num_crossed:',  num_crossed
         #assert num_crossed == 0, num_crossed
         
-        if False:
+        if True:
             for cnt in xrange(LONG_EDGE_N):
                 hsh = np.dot(hash_base, order)
                 #if hsh in visited:   # Done this local search?
@@ -1057,17 +1071,18 @@ def solve(path, points):
                 #    continue
                 visited.add(hsh)  
                 dist0 = dist
-                dist, order = local_search(N, distances, closest, dist, order, True)
+                dist, order = local_search(N, distances, closest, dist, order, True, do3)
                 dist = trip2(distances, order)
                        
-                update_if_necessary('local_search: long_edges: cnt=%d' % cnt, dist)
+                update_if_necessary('local_search: long_edges: cnt=%d' % cnt, dist, hsh)
                 print 'Long edges: cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (cnt, LONG_EDGE_N, dist0, dist, dist-dist0)
                 if dist > dist0 - 1.0:
                     print '@@@ No long edge search improvements'
                     break
-                
+        
+        
         dist0 = dist  
-        dist, order = local_search(N, distances, closest, dist, order, False)
+        dist, order = local_search(N, distances, closest, dist, order, False, do3)
         print 'Local: out_cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (out_cnt, OUTER_N, dist0, dist, dist-dist0)
         print 'Local: out_cnt=%d,dist00=%f,dist=%f,diff=%f' % (out_cnt, dist00, dist, dist-dist00)
         dist = trip2(distances, order)
@@ -1075,7 +1090,10 @@ def solve(path, points):
         visited.add(hsh)  
         update_if_necessary('local_search: minimum', dist, hsh)
         if dist > dist00 - 1.0:
-            break
+            if do3:
+                break
+            else:
+                do3 = True
        
     
     actual_dist = trip2(distances, order)
@@ -1206,7 +1224,7 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-#path_list.reverse()
+path_list.reverse()
 
 for path in path_list: # !@#$%
     print '-' * 80

@@ -16,8 +16,8 @@ from numba import autojit, jit, double
 
 import best_history
 
-# 80 forwards, 81 backwards
-VERSION = 230
+# 230 forwards, 231 backwards
+VERSION = 231
 
 MAX_CLOSEST = 10
 MAX_N = 30 * 1000
@@ -139,9 +139,9 @@ def precalculate(points):
         assert distances.shape[1] == N
         assert closest.shape[0] == N
         assert closest.shape[1] == N - 1
-        for i in xrange(1, N):
-            for j in xrange(i):
-                assert distances[i, j] > 0.0
+        #for i in xrange(1, N):
+        #    for j in xrange(i):
+        #        assert distances[i, j] > 0.0
     else:
     
         locations = np.array(points, dtype=np.float64)
@@ -175,7 +175,7 @@ def precalculate(points):
         load_save_npa(base_dir, npa_dict, True)
     
 
-    print '@@4'    
+    print '@@5'    
     #hack_locations = locations    
     return N, locations, distances, closest 
     
@@ -1219,7 +1219,7 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-#path_list.reverse()
+path_list.reverse()
 
 for path in path_list: # !@#$%
     print '-' * 80
