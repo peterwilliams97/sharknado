@@ -1,6 +1,8 @@
-from history08 import VERSION, saved_solutions, saved_points
+#from best_history import VERSION, saved_solutions, saved_points
+from history210 import VERSION, saved_solutions, saved_points
 import sys, os
 import igraph
+
 #import  cairo
 
 
@@ -34,22 +36,27 @@ def main():
         #sys.stdin.readline()  # skip header
         #order = map(int, sys.stdin.readline().split())
         edges = zip(order, order[1:] + order[:1])
-        print edges
-        for i in order:
-            print points[i] 
+        if False:
+            print edges
+            for i in order:
+                print points[i] 
         if sorted(order) != range(nodeCount):
             print "something wrong with solution!"
 
-        g = igraph.Graph(edges=edges, directed=True)
+        large = False    
+        g = igraph.Graph(edges=edges, directed=large)
         print type(g)
         style = {}
+        
         if True:
             #style["margin"] = 25
             style["layout"] = layout
-            style["vertex_size"] = 20
+            style["vertex_size"] = 20 if large else 2
             #style["bbox"] = (sx, sy)
             #style["vertex_label"] = ['%d:%d' % (disorder[i],i) for i in range(nodeCount)]
-            style["vertex_label"] = ['%d' % (disorder[i]) for i in range(nodeCount)]
+            
+            if large:
+                style["vertex_label"] = ['%d' % (disorder[i]) for i in range(nodeCount)]
             style["vertex_label_dist"] = 0
             style["vertex_color"] = "white"
             print 

@@ -14,14 +14,16 @@ import sys, time, os
 
 from numba import autojit, jit, double
 
-# 80 forwards, 81 backwards
-VERSION = 60
+import best_history
 
-MAX_CLOSEST = 50
+# 80 forwards, 81 backwards
+VERSION = 200
+
+MAX_CLOSEST = 10
 MAX_N =  30 * 1000
 DEBUG = False
 EPSILON = 1e-6
-RANDOM_SEED = 151 # Not the Nelson!
+RANDOM_SEED = 192 # Not the Nelson!
 
 print 'VERSION=%d' % VERSION
 print 'MAX_CLOSEST=%d' % MAX_CLOSEST
@@ -252,6 +254,7 @@ def save_solution(path, points, dist, order):
     saved_paths.add(path)
     saved_points[path] = points
     saved_solutions[path] = (dist, order) 
+    saved_scores = { path: soln[0] for path, soln in saved_solutions.items() }
     history = HISTORY % VERSION
     print 'Writing history:', history, sys.argv[0]
     with open(history, 'wt') as f:
@@ -264,6 +267,7 @@ def save_solution(path, points, dist, order):
         f.write('DEBUG=%s\n' % DEBUG)
         f.write('EPSILON=%s\n' % EPSILON)
         f.write('saved_paths = %s\n' % repr(sorted(saved_paths)))
+        f.write('saved_scores = %s\n' % repr(saved_scores))
         f.write('saved_solutions = %s\n' % repr(saved_solutions))
         f.write('saved_points = %s\n' % repr(saved_points))
     
@@ -606,11 +610,123 @@ def find_2_3opt_min(N, distances, closest, order, dist):
     return delta_, p1_, p2_, p3_, opt3_i                              
     #return delta_, np.array([p1_, p2_, p3_, opt3_i])                   
 
-   
-def do3opt_local(N, distances, closest, dist, order):
+
+def find_2_3opt_long_egdes(N, distances, closest, order, dist):
+    
+    edge_lengths = [distances[order[i], order[i+1]] for i in xrange(N-1)]
+    edge_lengths.append(distances[order[N-1], order[0]])
+    edges = range(N)
+    edges.sort(key=lambda i: -edge_lengths[i])
+     
+    N_EDGES = int(math.sqrt(N))
+    edges = edges[:N_EDGES]
+    
+    #print 'N_EDGES=%d' % N_EDGES
+        
+    N1 = N - 1
+    N2 = N - 2
+    #N4 = N - 4
+    M = min(N1, MAX_CLOSEST)
+    M2 = int(min(N1, math.sqrt(MAX_CLOSEST)))
+        
+    delta_ = 0.0
+    p1_, p2_, p3_ = -1, -1, -1
+    opt3_i = -1
+    opt3deltas = np.zeros(4)
+        
+    counter = count()
+    
+    for p1 in edges:
+        n2cnt = 0
+        closest1 = closest[p1]
+        for n2 in xrange(N2):
+            cnt = next(counter)
+            if cnt % 1000000 == 100000:
+                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, n2, delta_, dist+delta)
+           
+            p2 = closest1[n2]
+            #n2 += 1
+            if p2 < p1 + 2 or p2 > N2: continue
+                            
+            w1, w2 = order[p1], order[p1 + 1]   # a b
+            w3, w4 = order[p2], order[p2 + 1]   # c d 
+            delta = (distances[w1, w3] + distances[w2, w4]) - (distances[w1, w2] + distances[w3, w4])
+                        
+            if delta < delta_:
+                delta_ = delta
+                p1_, p2_ = p1, p2
+                
+            n2cnt += 1
+            #if n2cnt > M: break 
+       
+    counter2 = count()
+    
+    done_p3 = set()     
+    for p1 in edges:
+
+        n2cnt = 0
+        closest1 = closest[p1]
+        for n2 in xrange(N1):
+            #cnt = next(counter2)
+            #if cnt % 1000000 == 500:
+            #    print '**cnt=%d,p1=%d,n2=%d,n3=%d' % (cnt, p1, n2, n3) 
+        
+            p2 = closest1[n2]
+            if p2 < p1 + 2 or p2 > N - 4: continue 
+                        
+            #for p3 in xrange(p2+2, N - 2):
+            n3cnt = 0
+            closest2 = closest[p2]
+            
+            for n3 in xrange(N1):
+                cnt = next(counter2)
+                if cnt % 1000000 == 100000:
+                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, p3, n2, n3, delta_, dist+delta)
+                    
+                p3_1 = closest1[n3]
+                p3_2 = closest2[n3]
+                
+                for p3 in (p3_1, p3_2):
+                    if not (p3 >= p2 + 2 and p3 < N2): continue
+                    if (p1,p2,p3) in done_p3: continue
+                    done_p3.add((p1,p2,p3))
+                                          
+                    w1, w2 = order[p1], order[p1+1]   # a b
+                    w3, w4 = order[p2], order[p2+1]   # c d  
+                    w5, w6 = order[p3], order[p3+1]   # e f  
+                    
+                    bf = distances[w1, w2] + distances[w3, w4] + distances[w5, w6] # Original distance 
+                    opt3deltas[0] = distances[w1, w4] + distances[w2, w6] + distances[w3, w5] - bf
+                    opt3deltas[1] = distances[w1, w5] + distances[w2, w4] + distances[w3, w6] - bf
+                    opt3deltas[2] = distances[w1, w3] + distances[w2, w5] + distances[w4, w6] - bf
+                    opt3deltas[3]= distances[w1, w4] + distances[w2, w5] + distances[w3, w6] - bf 
+                   
+                    for i in xrange(4):
+                        if opt3deltas[i] < delta_:
+                            delta_ = opt3deltas[i]
+                            opt3_i = i
+                            p1_, p2_, p3_ = p1, p2, p3
+                    
+                    n3cnt += 1
+                if n3cnt > N_EDGES: 
+                    #print (n3cnt,),
+                    break 
+                
+            n2cnt += 1
+            
+            if n2cnt > N_EDGES: break
+        #print ('*', n2cnt, n2, cnt)
+            
+    return delta_, p1_, p2_, p3_, opt3_i                              
+    #return delta_, np.array([p1_, p2_, p3_, opt3_i])                   
+
+    
+def do3opt_local(N, distances, closest, dist, order, long_edges):
+    
+    find_min = find_2_3opt_long_egdes if long_edges else find_2_3opt_min
     
     #assert len(set(order)) == len(order)
-    delta, p1, p2, p3, opt3_i = find_2_3opt_min(N, distances, closest, order, dist)
+    delta, p1, p2, p3, opt3_i = find_min(N, distances, closest, order, dist)
     
     dist1, order1 = dist, order
     #print 'best:', best 
@@ -624,11 +740,11 @@ def do3opt_local(N, distances, closest, dist, order):
         
     return dist1, order1 
 
-def local_search(N, distances, closest, dist, order):
+def local_search(N, distances, closest, dist, order, long_edges):
     
     changed = False
     while True:
-        dist1, order1 = do3opt_local(N, distances, closest, dist, order)    
+        dist1, order1 = do3opt_local(N, distances, closest, dist, order, long_edges)    
         assert dist1 <= dist
         if dist1 == dist:
             break
@@ -706,8 +822,7 @@ MAX_ITER = 100
         
 def solve(path, points):
     """Return traversal order of points that minimizes distance travelled"""
-    
-    
+        
     N, locations, distances, closest = precalculate(points)
         
     hash_base = np.random.randint(10**4, 10**6, N)
@@ -715,18 +830,13 @@ def solve(path, points):
     
     outer_solutions = []
     optimum_solutions = []
-    
-    
-    NUM_GREEDY = (MAX_N + N - 1)//N
-    NUM_GREEDY = min(NUM_GREEDY, N)
-    print 'NUM_GREEDY=%d' % NUM_GREEDY 
-    
+        
     last_save_time = [time.time()]
     
-    def update_if_necessary(title):
+    def update_if_necessary(title, actual_dist):
         # Save our valuable result before we assert
-        if not optimum_solutions or dist < optimum_solutions[-1][0]:
-            actual_dist = trip2(distances, order)
+        if not optimum_solutions or actual_dist < optimum_solutions[-1][0]:
+            #actual_dist = trip2(distances, order)
             optimum_solutions.append((actual_dist, hsh, order))
             print 'best %s:' % title, optimum_solutions[-1][0]
             tm = time.time()
@@ -735,39 +845,62 @@ def solve(path, points):
                 save_solution(path, points, actual_dist, order)
                 last_save_time[0] = tm # !@#$
             if not CLOSE(dist, actual_dist):
-                print '**********************', DIFF(dist, actual_dist)    
-    
-    start_list = range(N)
-    random.shuffle(start_list)
-    for istart, start in enumerate(start_list[:NUM_GREEDY]):
-        print '$%d of %d: %d:' % (istart, NUM_GREEDY, start),
-        dist, order = populate_greedy(N, distances, closest, start)
-        print '%.2f)' % dist, 
-           
-        normalize(N, order)
-        hsh = np.dot(hash_base, order)   
-        if hsh in visited:   # Done this local search?
-            continue
-        visited.add(hsh) 
+                print '**********************', DIFF(dist, actual_dist)  
         
-        update_if_necessary('greedy')
-         
-        assert len(set(order)) == len(order), start
-        #actual_dist = trip2(distances, order)
-        #assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
+    
+    dist, order_in = best_history.saved_solutions[path]
+    assert len(order_in) == N
+    order = np.empty(N, dtype=np.int32)
+    for i in xrange(N): 
+        order[i] = order_in[i]
        
-        dist, order = local_search(N, distances, closest, dist, order)
+       
+   # update_if_necessary('best_history')
+     
+    assert len(set(order)) == len(order), start
+    #actual_dist = trip2(distances, order)
+    #assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
+   
+    OUTER_N = 100
+    LONG_EDGE_N = int(math.sqrt(N))
+    print 'OUTER_N:', OUTER_N 
+    print 'LONG_EDGE_N:', LONG_EDGE_N
+    for out_cnt in xrange(OUTER_N):
+        dist00 = dist
+        for cnt in xrange(LONG_EDGE_N):
+            hsh = np.dot(hash_base, order)
+            #if hsh in visited:   # Done this local search?
+            #    print '*** visited' 
+            #    continue
+            visited.add(hsh)  
+            dist0 = dist
+            dist, order = local_search(N, distances, closest, dist, order, True)
+            dist = trip2(distances, order)
+                   
+            update_if_necessary('local_search: long_edges: cnt=%d' % cnt, dist)
+            print 'Long edges: cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (cnt, LONG_EDGE_N, dist0, dist, dist-dist0)
+            if dist > dist0 - 1.0:
+                print '@@@ No long edge search improvements'
+                break
+                
+        dist0 = dist  
+        dist, order = local_search(N, distances, closest, dist, order, False)
+        print 'Local: out_cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (out_cnt, OUTER_N, dist0, dist, dist-dist0)
+        print 'Local: out_cnt=%d,dist00=%f,dist=%f,diff=%f' % (out_cnt, dist00, dist, dist-dist00)
+        dist = trip2(distances, order)
         hsh = np.dot(hash_base, order)
         visited.add(hsh)  
-        update_if_necessary('local_search')
-        
-        actual_dist = trip2(distances, order)
+        update_if_necessary('local_search: minimum', dist)
+        if dist > dist00 - 1.0:
+            break
+       
+    
+    actual_dist = trip2(distances, order)
 
-        assert dist > 0
-        assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
-        assert len(set(order)) == len(order), start
-        outer_solutions.append((dist, hsh, order))
-        
+    assert dist > 0
+    assert CLOSE(dist, actual_dist), DIFF(dist, actual_dist)
+    assert len(set(order)) == len(order), start
+    outer_solutions.append((dist, hsh, order))
             
     print 'Done greedy', len(outer_solutions), len(optimum_solutions)
     
@@ -892,7 +1025,7 @@ partIds = ['WdrlJtJq',
 path_list = [fileNameLookup[id] for id in partIds]
 #path_list.reverse()
 
-for path in path_list:
+for path in path_list[2:]:
     print '-' * 80
     print path
     solution = solveIt(loadInputData(path), path)
