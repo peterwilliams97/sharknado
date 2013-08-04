@@ -527,7 +527,7 @@ def find_2_3opt_min(N, distances, closest, order, dist):
         for n2 in xrange(N2):
             cnt = next(counter)
             if cnt % 1000000 == 100000:
-                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, n2, delta_, dist+delta)
+                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, n2, dist+delta_, delta_)
            
             p2 = closest1[n2]
             #n2 += 1
@@ -718,8 +718,6 @@ def get_crossed_edges(N, locations, order):
                 #    plt.show() 
 
     
-    print 'found %d crossed edges' % len(crossed_edges)
-
     for ij in crossed_edges:
         i = ij[0]
         j = ij[1]
@@ -731,6 +729,8 @@ def get_crossed_edges(N, locations, order):
         #plot_pair(i, j)
     #plt.show()    
     #exit()    
+    print 'found %d crossed edges' % len(crossed_edges)
+    
     return crossed_edges        
     
 
@@ -769,9 +769,8 @@ def remove_crossed_edges(N, locations, distances, closest, order, dist):
             if p2_ < p1:
                 p1, p2_ = p2_, p1
             dist, order = do2opt(N, distances, dist, order, delta_, p1, p2_, p1+1, p2_+1)
-            print '@ p1=%d,p2=%d,delta=%f,dist=%f' % (p1, p2, delta_, dist)
-        else:
-            print 'No improvement'
+            print '@i=%d: p1=%d,p2=%d,dist=%.1f,delta=%.1f' % (i, p1, p2, dist, delta_)
+       
     
     return dist, order, len(crossed_edges)    
        
@@ -808,7 +807,7 @@ def find_2_3opt_long_edges(N, distances, closest, order, dist):
         for n2 in xrange(N2):
             cnt = next(counter)
             if cnt % 1000000 == 100000:
-                print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, n2, delta_, dist+delta)
+                print '_cnt2=%d,(p1=%d,p2=%d),n2=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, n2, dist+delta_, delta_)
            
             p2 = closest1[n2]
             #n2 += 1

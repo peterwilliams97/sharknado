@@ -16,15 +16,15 @@ from numba import autojit, jit, double
 
 import best_history
 
-# 230 forwards, 231 backwards
-VERSION = 231
+# 240 forwards, 241 backwards
+VERSION = 290
 
-MAX_CLOSEST = 10
-MAX_N = 30 * 1000
+MAX_CLOSEST = 2000
+MAX_N = 10 * 1000
 DEBUG = False
 EPSILON = 1e-6
 RANDOM_SEED = 193 # Not the Nelson!
-MAX_EDGES = 500
+MAX_EDGES = 2000
 
 print 'VERSION=%d' % VERSION
 print 'MAX_CLOSEST=%d' % MAX_CLOSEST
@@ -573,7 +573,7 @@ def find_2_3opt_min(N, distances, closest, order, dist):
             for n3 in xrange(N1):
                 cnt = next(counter2)
                 if cnt % 1000000 == 100000:
-                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, p3, n2, n3, dist+delta_, delta_)
+                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, p3, n2, n3, delta_, dist+delta)
                     
                 p3_1 = closest1[n3]
                 p3_2 = closest2[n3]
@@ -857,7 +857,7 @@ def find_2_3opt_long_edges(N, distances, closest, order, dist):
             for n3 in xrange(N1):
                 cnt = next(counter2)
                 if cnt % 1000000 == 100000:
-                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, p3, n2, n3, dist+delta, delta_)
+                    print 'cnt3=%d,(p1=%d,p2=%d,p3=%d),n2=%d,n3=%d,delta_=%.1f,dist=%.1f' % (cnt, p1, p2, p3, n2, n3, delta_, dist+delta)
                     
                 p3_1 = closest1[n3]
                 p3_2 = closest2[n3]
@@ -1043,51 +1043,61 @@ def solve(path, points):
     print 'LONG_EDGE_N:', LONG_EDGE_N
     print 'MAX_EDGES:', MAX_EDGES 
     
-    for out_cnt in xrange(OUTER_N):
+    for start in xrange(N):
+        print '$%d' % start,
+        dist, order = populate_greedy(N, distances, closest, start)
+        #if start % 3 > 0:
+        #    random.shuffle(order)
+        #    dist = trip2(distances, order)
         
-        dist00 = dist
-        
-        for cnt in xrange(N):
-            dist0 = dist
-            dist, order, num_crossed = remove_crossed_edges(N, locations, distances, closest, order, dist, MAX_EDGES)
-            print '!!!! %.1f => %.1f, delta=%f, numcrossed=%d' % (dist0, dist, dist - dist0, num_crossed)  
-            if dist > dist0 - 1:
-                break
-               
+        normalize(N, order)
+        dist = trip2(distances, order)
+    
+        for out_cnt in xrange(OUTER_N):
+            
+            dist00 = dist
+            
+            for cnt in xrange(N):
+                dist0 = dist
+                dist, order, num_crossed = remove_crossed_edges(N, locations, distances, closest, order, dist, MAX_EDGES)
+                print '!!!! %.1f => %.1f, delta=%f, numcrossed=%d' % (dist0, dist, dist - dist0, num_crossed)  
+                if dist > dist0 - 1:
+                    break
+                   
+                dist = trip2(distances, order)
+                hsh = np.dot(hash_base, order)
+                update_if_necessary('local_search: remove_crossed_edges: cnt=%d' % cnt, dist, hsh)
+            if num_crossed != 0:
+                print '!!!!!!!!!!! num_crossed:',  num_crossed
+            #assert num_crossed == 0, num_crossed
+            
+            if False:
+                for cnt in xrange(LONG_EDGE_N):
+                    hsh = np.dot(hash_base, order)
+                    #if hsh in visited:   # Done this local search?
+                    #    print '*** visited' 
+                    #    continue
+                    visited.add(hsh)  
+                    dist0 = dist
+                    dist, order = local_search(N, distances, closest, dist, order, True)
+                    dist = trip2(distances, order)
+                           
+                    update_if_necessary('local_search: long_edges: cnt=%d' % cnt, dist)
+                    print 'Long edges: cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (cnt, LONG_EDGE_N, dist0, dist, dist-dist0)
+                    if dist > dist0 - 1.0:
+                        print '@@@ No long edge search improvements'
+                        break
+                    
+            dist0 = dist  
+            dist, order = local_search(N, distances, closest, dist, order, False)
+            print 'Local: out_cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (out_cnt, OUTER_N, dist0, dist, dist-dist0)
+            print 'Local: out_cnt=%d,dist00=%f,dist=%f,diff=%f' % (out_cnt, dist00, dist, dist-dist00)
             dist = trip2(distances, order)
             hsh = np.dot(hash_base, order)
-            update_if_necessary('local_search: remove_crossed_edges: cnt=%d' % cnt, dist, hsh)
-        if num_crossed != 0:
-            print '!!!!!!!!!!! num_crossed:',  num_crossed
-        #assert num_crossed == 0, num_crossed
-        
-        if True:
-            for cnt in xrange(LONG_EDGE_N):
-                hsh = np.dot(hash_base, order)
-                #if hsh in visited:   # Done this local search?
-                #    print '*** visited' 
-                #    continue
-                visited.add(hsh)  
-                dist0 = dist
-                dist, order = local_search(N, distances, closest, dist, order, True)
-                dist = trip2(distances, order)
-                       
-                update_if_necessary('local_search: long_edges: cnt=%d' % cnt, dist, hsh)
-                print 'Long edges: cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (cnt, LONG_EDGE_N, dist0, dist, dist-dist0)
-                if dist > dist0 - 1.0:
-                    print '@@@ No long edge search improvements'
-                    break
-                
-        dist0 = dist  
-        dist, order = local_search(N, distances, closest, dist, order, False)
-        print 'Local: out_cnt=%d of %d, dist0=%f,dist=%f, diff=%f' % (out_cnt, OUTER_N, dist0, dist, dist-dist0)
-        print 'Local: out_cnt=%d,dist00=%f,dist=%f,diff=%f' % (out_cnt, dist00, dist, dist-dist00)
-        dist = trip2(distances, order)
-        hsh = np.dot(hash_base, order)
-        visited.add(hsh)  
-        update_if_necessary('local_search: minimum', dist, hsh)
-        if dist > dist00 - 1.0:
-            break
+            visited.add(hsh)  
+            update_if_necessary('local_search: minimum', dist, hsh)
+            if dist > dist00 - 1.0:
+                break
        
     
     actual_dist = trip2(distances, order)
@@ -1218,9 +1228,9 @@ partIds = ['WdrlJtJq',
  'vLKzhJhP'] 
 
 path_list = [fileNameLookup[id] for id in partIds]
-path_list.reverse()
+#path_list.reverse()
 
-for path in path_list: # !@#$%
+for path in path_list[2:]: # !@#$%
     print '-' * 80
     print path
     solution = solveIt(loadInputData(path), path)

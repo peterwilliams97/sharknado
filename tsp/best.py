@@ -59,6 +59,22 @@ for name in sorted(all_solutions):
     saved_solutions[name] = all_solutions[name][best[0]]
     saved_points[name] = all_points[name][best[0]]
     saved_scores[name] = all_solutions[name][best[0]][0]
+    
+print '=' * 80    
+for name in sorted(all_solutions):
+    best = [(mod_name, soln[0]) for mod_name, soln in all_solutions[name].items()]
+    best = sorted(all_solutions[name].keys(), key=lambda k: all_solutions[name][k][0])
+    #best.sort(key=lambda x: x[1])
+    
+    print '%20s:' % name, 
+    for hist in best[:1]:
+        score = all_solutions[name][hist][0]
+        order = all_solutions[name][hist][1]
+        points = all_points[name][hist]
+        actual_score = trip(points, order)
+        assert abs(score - actual_score) < 1e-5, '%s %s %f %f %f' % (hist, name, 
+                score, actual_score, score - actual_score)
+        print hist, score, actual_score    
    
    
 history = 'best_history.py'
