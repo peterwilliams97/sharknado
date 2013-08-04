@@ -17,13 +17,13 @@ from numba import autojit, jit, double
 import best_history
 
 # 250 forwards, 251 backwards
-VERSION = 321
+VERSION = 322
 
 MAX_CLOSEST = 100 # 2000
 MAX_N = 30 * 1000
 DEBUG = False
 EPSILON = 1e-6
-RANDOM_SEED = 202 # Not the Nelson!
+RANDOM_SEED = 203 # Not the Nelson!
 MAX_EDGES = 100 # 2000
 
 print 'VERSION=%d' % VERSION
@@ -1101,7 +1101,7 @@ def do3opt_random(N, distances, dist, order):
     opt3_i = -1
     
     print 'do3opt_random!'
-    MAX_R = min((N * N * N)/4, 10e9)
+    MAX_R = min((N * N * N)/4, 10e8)
     cnt = 0
     while cnt < MAX_R:
         p1, p2, p3 = random.randrange(0, N), random.randrange(0, N), random.randrange(0, N)
@@ -1505,7 +1505,7 @@ partIds = ['WdrlJtJq',
 path_list = [fileNameLookup[id] for id in partIds]
 #path_list.reverse()
 
-for path in path_list[2:]: # !@#$%
+for path in path_list: # !@#$%
     print '-' * 80
     print path
     solution = solveIt(loadInputData(path), path)
