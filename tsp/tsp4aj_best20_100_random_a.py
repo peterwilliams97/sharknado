@@ -1044,12 +1044,16 @@ def do2opt_random(N, distances, dist, order):
     
     #assert CLOSE(dist, trip2(distances, order)), '%s %s' % (dist, trip2(distances, order))
     
-    done = set()
-    delta_ = None
+    #assert len(set(order)) == len(order)
     
-    if N > 4000:
-        NR0 = random.randrange(0, N - 4000)
-        NR1 = NR0 + 4000
+    done = set()
+    delta_ = 1e6
+    
+    N_D = 5000
+    N_D2 = N_D//2
+    if N > N_D:
+        NR0 = random.randrange(0, N - N_D)
+        NR1 = NR0 + N_D
     else:
         NR0 = 0
         NR1 = N
@@ -1069,8 +1073,10 @@ def do2opt_random(N, distances, dist, order):
             
         exclude = set([w0, w1, w2])
          
-        while order[p2] in exclude:
-            p2 = random.randrange(NR0, NR1)
+        while order[p2] in exclude or abs(order[p2] - w1) > N_D2:
+            p2 = random.randrange(0, N)
+            
+        #assert p1 != p2, '(%d, %d) (%d, %d) %s' % (p1, p2, order[p1], order[p2], exclude)    
             
         p2b = p2 - 1 if p2 > 0 else N1 
         p2a = p2 + 1 if p2 < N1 else 0    
@@ -1088,13 +1094,13 @@ def do2opt_random(N, distances, dist, order):
         done.add((p1,p2))    
         
         delta, boundaries = calc2opt_delta(N, distances, order, dist, (p1, p2))
-        if delta_ is None or delta < delta_:
+        if delta < delta_:
             delta_ = delta
         if delta_ < 0:
            break
     #assert dist + delta > 0
     
-    print N, (MAX_R, len(done)), delta_ 
+    print '$', N, (MAX_R, len(done)), delta_, p1, p2 
     #print '%', boundaries
     
     if delta_ < 0:
@@ -1315,6 +1321,10 @@ def solve(path, points):
     
     do3 = False
     
+    normalize(N, order)
+    dist = trip2(distances, order)
+    
+    assert len(set(order)) == len(order)
     
     #done2 = set()
     #done3 = set()
@@ -1323,10 +1333,12 @@ def solve(path, points):
         while True:
             dist0 = dist
             dist, order = do2opt_random(N, distances, dist, order)
-            if dist < dist0:
+            if dist < dist0 - EPSILON:
+                dist1 = dist
                 normalize(N, order)
                 dist = trip2(distances, order)
-                assert dist < dist00
+                assert dist < dist00, '%f %f %f %f (%f) (%f)' % (dist00, dist0, dist, dist1, 
+                    dist - dist0, dist - dist1)
                 hsh = np.dot(hash_base, order)
                 update_if_necessary('do2opt_random', dist, hsh, order)
             else:
@@ -1337,7 +1349,7 @@ def solve(path, points):
         if dist < dist0:
             normalize(N, order)
             dist = trip2(distances, order)
-            assert dist < dist0
+            assert dist < dist0 - EPSILON
             hsh = np.dot(hash_base, order)
             update_if_necessary('do3opt_random', dist, hsh, order)   
 
