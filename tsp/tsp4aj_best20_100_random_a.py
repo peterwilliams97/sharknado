@@ -17,13 +17,13 @@ from numba import autojit, jit, double
 import best_history
 
 # 250 forwards, 251 backwards
-VERSION = 327
+VERSION = 328
 
 MAX_CLOSEST = 100 # 2000
 MAX_N = 30 * 1000
 DEBUG = False
 EPSILON = 1e-6
-RANDOM_SEED = 207 # Not the Nelson!
+RANDOM_SEED = 208 # Not the Nelson!
 MAX_EDGES = 100 # 2000
 
 print 'VERSION=%d' % VERSION
@@ -1047,9 +1047,9 @@ def do2opt_random(N, distances, dist, order):
     done = set()
     delta_ = None
     
-    if N > 5000:
-        NR0 = random.randrange(0, N -5000)
-        NR1 = NR0 + 5000
+    if N > 4000:
+        NR0 = random.randrange(0, N - 4000)
+        NR1 = NR0 + 4000
     else:
         NR0 = 0
         NR1 = N
