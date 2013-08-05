@@ -17,13 +17,13 @@ from numba import autojit, jit, double
 import best_history
 
 # 250 forwards, 251 backwards
-VERSION = 357
+VERSION = 358
 
 MAX_CLOSEST = 10 # 2000
 MAX_N = 30 * 1000
 DEBUG = False
 EPSILON = 1e-6
-RANDOM_SEED = 218 # Not the Nelson!
+RANDOM_SEED = 219 # Not the Nelson!
 MAX_EDGES = 100 # 2000
 
 print 'VERSION=%d' % VERSION
@@ -1220,7 +1220,7 @@ def neighbor_search(N, distances, closest, visited, hash_base, dist, order, upda
     """Search for best solution starting with order"""
     
     MAX_NO_IMPROVEMENT_BASE = 200 
-    MAX_NEIGHBORHOOD = 10 
+    MAX_NEIGHBORHOOD = 30 
     
     pass2 = False, MAX_NO_IMPROVEMENT_BASE
     pass1 = True, MAX_NO_IMPROVEMENT_BASE//3
