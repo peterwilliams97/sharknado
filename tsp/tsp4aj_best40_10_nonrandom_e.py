@@ -16,14 +16,14 @@ from numba import autojit, jit, double
 
 import best_history
 
-# 250 forwards, 251 backwards
-VERSION = 359
 
-MAX_CLOSEST = 10 # 2000
+VERSION = 367
+
+MAX_CLOSEST = 50 # 2000
 MAX_N = 30 * 1000
 DEBUG = False
 EPSILON = 1e-6
-RANDOM_SEED = 220 # Not the Nelson!
+RANDOM_SEED = 227 # Not the Nelson!
 MAX_EDGES = 100 # 2000
 
 print 'VERSION=%d' % VERSION
@@ -557,7 +557,7 @@ def find_2_3opt_min(N, distances, closest, order, dist, do3):
         closest1 = closest[p1]
         for n2 in xrange(N2):
             cnt = next(counter)
-            if cnt % 1000000 == 100000:  print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, n2, dist+delta_, delta_)
+            if cnt % 1000000 == 900000:  print 'cnt2=%d,(p1=%d,p2=%d),n2=%d,dist=%.1f,delta_=%.1f' % (cnt, p1, p2, n2, dist+delta_, delta_)
            
             #print n2, 
             #print closest_order2[n2],
@@ -1220,7 +1220,7 @@ def neighbor_search(N, distances, closest, visited, hash_base, dist, order, upda
     """Search for best solution starting with order"""
     
     MAX_NO_IMPROVEMENT_BASE = 200 
-    MAX_NEIGHBORHOOD = 10 
+    MAX_NEIGHBORHOOD = 15 
     
     pass2 = False, MAX_NO_IMPROVEMENT_BASE
     pass1 = True, MAX_NO_IMPROVEMENT_BASE//3
@@ -1241,7 +1241,7 @@ def neighbor_search(N, distances, closest, visited, hash_base, dist, order, upda
         i = 0
         changes = []
         while len(changes) < n:
-            while random.random() < 0.7:
+            while random.random() < 0.9:
                 i += 1
             changes.append(i)
             i += 1
@@ -1593,7 +1593,7 @@ partIds = ['WdrlJtJq',
 path_list = [fileNameLookup[id] for id in partIds]
 #path_list.reverse()
 
-for path in path_list[4:]: # !@#$%
+for path in path_list[3:]: # !@#$%
     print '-' * 80
     print path
     solution = solveIt(loadInputData(path), path)
