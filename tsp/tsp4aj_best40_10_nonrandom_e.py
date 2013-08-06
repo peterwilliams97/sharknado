@@ -17,13 +17,13 @@ from numba import autojit, jit, double
 import best_history
 
 
-VERSION = 367
+VERSION = 368
 
 MAX_CLOSEST = 50 # 2000
 MAX_N = 30 * 1000
 DEBUG = False
 EPSILON = 1e-6
-RANDOM_SEED = 227 # Not the Nelson!
+RANDOM_SEED = 228 # Not the Nelson!
 MAX_EDGES = 100 # 2000
 
 print 'VERSION=%d' % VERSION
@@ -1285,7 +1285,7 @@ def neighbor_search(N, distances, closest, visited, hash_base, dist, order, upda
             while no_improvement_count <= MAX_NO_IMPROVEMENT:
                 print 'no_improvement_count=%d,MAX_NO_IMPROVEMENT=%d' % (no_improvement_count, MAX_NO_IMPROVEMENT)
         
-                for neighborhood in range(1, MAX_NEIGHBORHOOD):
+                for neighborhood in range(2, MAX_NEIGHBORHOOD):
                     print 'nhd=%d,' % neighborhood,
                     found, dist1, order1 = make_neighbor(dist, order, neighborhood, do3)
                     if not found:
