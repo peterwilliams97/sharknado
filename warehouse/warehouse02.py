@@ -31,7 +31,7 @@ except:
     pass
     
 def make_name(W, C):
-    return 'wh_%03d_%05d.mps' % (W, C)
+    return 'wh2_%03d_%05d.mps' % (W, C)
     
     
 def make_path(W, C):
@@ -51,44 +51,57 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
 
     rows = []
     
-    def make_row(cls, row_type, x_rule, y_rule, rhs):
-        x = [0] * W
-        y = [0] * C * W
-        for w in range(W):
-            x[w] = x_rule(w)
-        for w in range(W):
-            for c in range(C):
+    def make_row(cls, row_type, 
+                 x_rule, x_w_keys, 
+                 y_rule, y_w_keys, y_c_keys, 
+                 rhs):
+        vals = {}
+        for w in x_w_keys:
+            vals['x%d' % w] = x_rule(w)
+        for w in y_w_keys:
+            for c in y_c_keys:
                 #print c, w, c * W + w, C * W
-                y[w * C + c] = y_rule(w, c)
+                vals['y%d_%d' % (w, c)] = y_rule(w, c)
+  
         name = '%s%02d' % (cls, len(rows))        
         #print cls, len(rows), name, rhs
-        rows.append(Row(name=name, typ=row_type, vals=x+y, rhs=rhs))
+        rows.append(Row(name=name, typ=row_type, vals=vals, rhs=rhs))
       
     print '@1 objective'   
     #obj = sum([warehouses[w].cost * x[w]) fixed cost  
     #  + sum(customerCosts[w,c] *y[w,c]) transportation cost
     make_row('OB', 'N', 
-            lambda i: warehouses[i].cost, 
-            lambda i, j: customerCosts[j][i], 0.0)
+            lambda i: warehouses[i].cost, range(W),
+            lambda i, j: customerCosts[j][i], range(W), range(C),
+            0.0)
     
     print '@1a', W * C
     # y[w,c] <= x[w]
     for w in range(W):
         for c in range(C):
-            make_row('A_', 'G', lambda i: int(i==w), lambda i, j: -int(i==w and j==c), 0.0)
+            make_row('A_', 'G', 
+                lambda i: 1, [w],
+                lambda i, j: -1, [w], [c],  
+                0.0)
     
     print '@2', C
     #sum(y[w,c]) over w == 1     
     for c in range(C):
-        make_row('B_', 'E', lambda i: 0, lambda i, j: int(j==c), 1.0)   
+        make_row('B_', 'E', 
+            lambda i: 0, [],
+            lambda i, j: 1, range(W), [c], 
+            1.0)   
     
     print '@3', W
     # sum(y[w,c]) over c <= capacity[w]
     for w in range(W):
         print 'warehouses[%d]=%s' % (w, warehouses[w])
-        make_row('C_', 'L', lambda i: 0, lambda i, j: int(i==w) * customerSizes[j], warehouses[w].capacity)    
+        make_row('C_', 'L', 
+            lambda i: 0, [],
+            lambda i, j:  customerSizes[j], [w], range(C), 
+            warehouses[w].capacity)    
         
-    print '@100', len(rows)
+    print '@100', make_path(W,C), len(rows)
    
     
     with open(make_path(W,C), 'wt') as f:
@@ -96,7 +109,7 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
         f.write('*ROWS:         %d\n' % len(variables))
         f.write('*COLUMNS:      %d\n' % len(rows))
         #for r in rows:
-        #    f.write('* %s\n' % repr(r)[:100])
+        #    f.write('* %s\n' % repr(r))
         #f.write('*INTEGER:      27
         f.write('%-15s%s\n' % ('NAME', make_name(W, C)))
         f.write('ROWS\n')
@@ -105,14 +118,23 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
             f.write('%2s %s\n' % (r.typ, r.name))
         f.write('COLUMNS\n')  
         f.write("  MARK0000  'MARKER'                 'INTORG'\n")
+        total = 0
         for iv, v in enumerate(variables):
+            if iv % 1000 == 1:
+                estimate = int(total * len(variables)/iv) if iv > 0 else 0
+                print '%5d of %d %f (%8d) : %8d' % (iv, len(variables), iv/len(variables), total, estimate)
+                f.flush()
+            cnt = 0
+    
             for ir, r in enumerate(rows):
-                #print ir, r
-                if ir % 2 == 0:
-                     f.write('%7s ' % v)
-                f.write('%7s %8.3f ' % (r.name, r.vals[iv]))
-                if ir % 2 == 1:
-                     f.write('\n')
+                if v not in r.vals.keys():                   continue
+                if cnt % 2 == 0:
+                    f.write('%7s ' % v)
+                f.write('%7s %8.3f ' % (r.name, r.vals.get(v, 0)))
+                if cnt % 2 == 1:
+                    f.write('\n')
+                cnt += 1 
+                total += 1    
             f.write('\n')             
         f.write("   MARK0001  'MARKER'                 'INTEND'\n")
         f.write('RHS\n')             
@@ -195,7 +217,7 @@ def solveIt(inputData):
 
     return outputData
 
-
+    
 import sys
 
 if __name__ == '__main__':
