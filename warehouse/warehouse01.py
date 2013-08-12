@@ -59,21 +59,22 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
         for w in range(W):
             for c in range(C):
                 #print c, w, c * W + w, C * W
-                y[c * W + w] = y_rule(w, c)
+                y[w * C + c] = y_rule(w, c)
         name = '%s%02d' % (cls, len(rows))        
-        print cls, len(rows), name
+        #print cls, len(rows), name, rhs
         rows.append(Row(name=name, typ=row_type, vals=x+y, rhs=rhs))
       
     print '@1'  
     #obj = sum([warehouses[w].cost * x[w]) fixed cost  
     #  + sum(customerCosts[w,c] *y[w,c]) transportation cost
-    make_row('OB', 'L', 
-            lambda i: -warehouses[i].cost, 
-            lambda i, j: -customerCosts[j][i], 0.0)
+    make_row('OB', 'N', 
+            lambda i: warehouses[i].cost, 
+            lambda i, j: customerCosts[j][i], 0.0)
     
     # y[w,c] <= x[w]
     for w in range(W):
-        make_row('A_', 'G', lambda i: int(i==w), lambda i, j: -int(i==w), 0.0)
+        for c in range(C):
+            make_row('A_', 'G', lambda i: int(i==w), lambda i, j: -int(i==w and j==c), 0.0)
     
     print '@2'
     #sum(y[w,c]) over w == 1     
@@ -81,9 +82,10 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
         make_row('B_', 'E', lambda i: 0, lambda i, j: int(j==c), 1.0)   
     
     print '@3'
-    # sum(y[w,c] * cost[w,c]) over c <= capacity[w]
+    # sum(y[w,c]) over c <= capacity[w]
     for w in range(W):
-        make_row('C_', 'L', lambda i: 0, lambda i, j: int(i==w) * customerCosts[c][w], warehouses[w].capacity)    
+        print 'warehouses[%d]=%s' % (w, warehouses[w])
+        make_row('C_', 'L', lambda i: 0, lambda i, j: int(i==w) , warehouses[w].capacity)    
         
     print '@100'
    
@@ -104,7 +106,7 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
         f.write("  MARK0000  'MARKER'                 'INTORG'\n")
         for iv, v in enumerate(variables):
             for ir, r in enumerate(rows):
-                print ir, r
+                #print ir, r
                 if ir % 2 == 0:
                      f.write('%7s ' % v)
                 f.write('%7s %8.3f ' % (r.name, r.vals[iv]))
@@ -114,7 +116,7 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
         f.write("   MARK0001  'MARKER'                 'INTEND'\n")
         f.write('RHS\n')             
         for ir, r in enumerate(rows):
-            f.write(' %7s %6f' % (r.name, r.rhs))
+            f.write(' %7s %8.3f' % (r.name, r.rhs))
             if ir % 2 == 1:
                  f.write('\n') 
         f.write('\n')      
