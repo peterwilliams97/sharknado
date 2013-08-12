@@ -87,7 +87,7 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
         print 'warehouses[%d]=%s' % (w, warehouses[w])
         make_row('C_', 'L', lambda i: 0, lambda i, j: int(i==w) , warehouses[w].capacity)    
         
-    print '@100'
+    print '@100', len(rows)
    
     
     with open(make_path(W,C), 'wt') as f:
@@ -95,7 +95,7 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
         f.write('*ROWS:         %d\n' % len(variables))
         f.write('*COLUMNS:      %d\n' % len(rows))
         for r in rows:
-            f.write('* %s\n' % repr(r))
+            f.write('* %s\n' % repr(r)[:100])
         #f.write('*INTEGER:      27
         f.write('%-15s%s\n' % ('NAME', make_name(W, C)))
         f.write('ROWS\n')
