@@ -19,6 +19,7 @@ Entire model:
 from __future__ import division
 from collections import namedtuple
 import os, glob, subprocess, re
+import logging
 
 Warehouse = namedtuple('Warehouse', ['capacity', 'cost'])
 Row = namedtuple('Row', ['name', 'typ', 'vals', 'rhs'])
@@ -26,13 +27,11 @@ Row = namedtuple('Row', ['name', 'typ', 'vals', 'rhs'])
 MPS_DIR = 'mps'
 SOLUTION_DIR = 'solution'
 BAT_DIR = 'batch'
-SCIP_PATH = r'D:\peter.dev\disc.op\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe' 
+#SCIP_PATH = r'D:\peter.dev\disc.op\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe' 
+SCIP_PATH = r'D:\dev\coursera\discrete.optimization\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe'
 
-import logging
-logging.basicConfig(filename='log.log', level=logging.DEBUG, 
-            format='%(asctime)s:%(levelname)s:%(message)s'))
-logging.info('-' * 80)
-logging.info('Starting')
+
+
 
 for dir in MPS_DIR, SOLUTION_DIR, BAT_DIR:
     try:
@@ -42,7 +41,6 @@ for dir in MPS_DIR, SOLUTION_DIR, BAT_DIR:
     
 def make_name(path):
     return os.path.basename(path)
-    
     
 def make_mps_path(path):
     return os.path.join(MPS_DIR, make_name(path) + '.mps')
@@ -243,22 +241,48 @@ def make_mps(path, warehouses, customerCount, customerSizes, customerCosts):
 def solve(path, warehouses, customerCount, customerSizes, customerCosts):
     
     make_mps(path, warehouses, customerCount, customerSizes, customerCosts)
+    
+some_dict = {    
+ '8zVuNh0L-dev': './data/wl_16_1',
+ 'eaOs8z3l-dev': './data/wl_25_2',
+ 'pxIsuCQe-dev': './data/wl_50_1',
+ 'clCLq0Vb-dev': './data/wl_100_4',
+ '2gHetJOV-dev': './data/wl_200_1',
+ 'ASSX0Lq4-dev': './data/wl_500_1',
+ 'OXs89Owz-dev': './data/wl_1000_1',
+ 'AO0FA8y8-dev': './data/wl_2000_1'    
+}
+submit_paths = some_dict.values()
 
-    if False:
-        solution = [-1] * customerCount
-        capacityRemaining = [w.capacity for w in warehouses]
+RE_DATA = re.compile(r'wl_(\d+)_\d+') 
 
-        warehouseIndex = 0
-        for c in range(customerCount):
-            if capacityRemaining[warehouseIndex] >= customerSizes[c]:
-                solution[c] = warehouseIndex
-                capacityRemaining[warehouseIndex] -= customerSizes[c]
-            else:
-                warehouseIndex += 1
-                assert capacityRemaining[warehouseIndex] >= customerSizes[c]
-                solution[c] = warehouseIndex
-                capacityRemaining[warehouseIndex] -= customerSizes[c]
-        return solution
+def get_W(path):
+    m = RE_DATA.search(path)
+    assert m, path
+    return int(m.group(1))
+    
+w_path_map = { get_W(path): path for path in submit_paths }
+submit_paths = [w_path_map[w] for w in sorted(w_path_map)]
+
+
+
+def solve_extern(warehouses, customerCount, customerSizes, customerCosts):
+    W = len(warehouses)
+    C = customerCount
+    print 'solve_extern', W, C
+    path = w_path_map[W]
+    
+    solution_path = make_solution_path(path)
+    objective, optimal, solution_dict = parse_solution(solution_path)
+    
+    assert len(solution_dict) == C
+    solution = [-1] * C
+    for c, w in solution_dict.items():        
+        solution[c] = w  
+        
+    return objective, optimal, solution   
+    
+       
 
 def solveIt(path, inputData):
     # Modify this code to run your optimization algorithm
@@ -310,9 +334,23 @@ import sys
 
 if __name__ == '__main__':
 
-    path_list = sorted(glob.glob('data/*'))
+    
+    logging.basicConfig(filename='log.log', level=logging.DEBUG, 
+            format='%(asctime)s:%(levelname)s:%(message)s')
+
+    logging.info('-' * 80)
+    logging.info('Starting')
+
+    path_list = list(glob.glob('data/*'))
     path_list.sort(key=lambda path: os.path.getsize(path))
-    for path in path_list:
+    path_list = submit_paths
+    
+    
+    for i, path in enumerate(path_list):
+        print i, path
+    print '-' * 80
+   
+    for path in path_list[6:]:
         with open(path, 'r') as f:
             inputData = ''.join(f.readlines())
         print 'Solving:', path
