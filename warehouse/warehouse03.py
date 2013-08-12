@@ -31,7 +31,7 @@ except:
     pass
     
 def make_name(W, C):
-    return 'wh2_%03d_%05d.mps' % (W, C)
+    return 'wh3_%03d_%05d.mps' % (W, C)
     
     
 def make_path(W, C):
@@ -50,6 +50,8 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
     variables = x_vars + y_vars
 
     rows = []
+    # For looking up rows which contain a particular variable
+    rows_with_var = {v:set() for v in variables}
     
     def make_row(cls, row_type, 
                  x_rule, x_w_keys, 
@@ -63,9 +65,13 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
                 #print c, w, c * W + w, C * W
                 vals['y%d_%d' % (w, c)] = y_rule(w, c)
   
-        name = '%s%02d' % (cls, len(rows))        
+        num = len(rows)
+        name = '%s%02d' % (cls, num)        
         #print cls, len(rows), name, rhs
         rows.append(Row(name=name, typ=row_type, vals=vals, rhs=rhs))
+        
+        for v in vals:
+            rows_with_var[v].add(num) 
       
     print '@1 objective'   
     #obj = sum([warehouses[w].cost * x[w]) fixed cost  
@@ -102,6 +108,13 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
             warehouses[w].capacity)    
         
     print '@100', make_path(W,C), len(rows)
+    
+    for r in rows:
+        assert isinstance(r, Row), r
+    
+    for v in rows_with_var.keys():
+        rows_with_var[v] = sorted(rows_with_var[v])
+        assert isinstance(rows_with_var[v], list), rows_with_var[v]
    
     
     with open(make_path(W,C), 'wt') as f:
@@ -126,8 +139,11 @@ def make_mps(warehouses, customerCount, customerSizes, customerCosts):
                 f.flush()
             cnt = 0
     
-            for ir, r in enumerate(rows):
-                if v not in r.vals.keys():                   continue
+            for ir in rows_with_var[v]: 
+                r = rows[ir]
+            #for ir, r in enumerate(rows):
+            #    if v not in r.vals.keys(): 
+            #        continue
                 if cnt % 2 == 0:
                     f.write(' %-7s ' % v)
                 f.write('%-7s %8.3f ' % (r.name, r.vals.get(v, 0)))
