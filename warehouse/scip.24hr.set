@@ -6,5 +6,5 @@
 
 # maximal time in seconds to run
 # [type: real, range: [0,1.79769313486232e+308], default: 1e+20]
-limits/time = 4.4e4
+limits/time = 8.7e4
 
