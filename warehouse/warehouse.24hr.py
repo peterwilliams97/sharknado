@@ -44,13 +44,13 @@ def make_mps_path(path):
     return os.path.join(MPS_DIR, make_name(path) + '.mps')
 
 def make_solution_path(path):
-    return os.path.join(SOLUTION_DIR, make_name(path) + '.4hour.soln')    
+    return os.path.join(SOLUTION_DIR, make_name(path) + '.24hour.soln')    
        
 def make_bat_path(path):
     return os.path.join(BAT_DIR, make_name(path) + '.scip')    
     
 def run_scip(bat_path):    
-    argv = [SCIP_PATH, '-b', bat_path, '-s', 'scip1.set' ]
+    argv = [SCIP_PATH, '-b', bat_path, '-s', 'scip.24hr.set' ]
     p = subprocess.Popen(argv)
     p.wait()
     
@@ -350,7 +350,7 @@ if __name__ == '__main__':
     print '-' * 80
    
     #for path in reversed(path_list):
-    for path in path_list[5:]:
+    for path in path_list[6:]:
         with open(path, 'r') as f:
             inputData = ''.join(f.readlines())
         print 'Solving:', path
