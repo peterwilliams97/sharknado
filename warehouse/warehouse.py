@@ -31,8 +31,6 @@ SCIP_PATH = r'D:\peter.dev\disc.op\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\sci
 #SCIP_PATH = r'D:\dev\coursera\discrete.optimization\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe'
 
 
-
-
 for dir in MPS_DIR, SOLUTION_DIR, BAT_DIR:
     try:
         os.makedirs(dir)
@@ -45,12 +43,9 @@ def make_name(path):
 def make_mps_path(path):
     return os.path.join(MPS_DIR, make_name(path) + '.mps')
 
-
 def make_solution_path(path):
-    return os.path.join(SOLUTION_DIR, make_name(path) + '.soln')    
-    
-def make_solution_path(path):
-    return os.path.join(SOLUTION_DIR, make_name(path) + '.soln')
+    return os.path.join(SOLUTION_DIR, make_name(path) + '.1hour.soln')    
+   
     
 def make_bat_path(path):
     return os.path.join(BAT_DIR, make_name(path) + '.scip')    
@@ -215,7 +210,7 @@ def make_mps(path, warehouses, customerCount, customerSizes, customerCosts):
                 f.write('  UP BOUND %-7s 1\n' % (v))
             f.write('ENDATA\n')     
             
-        
+
     with open(make_bat_path(path), 'wt') as f:
         f.write('read %s\n' % make_mps_path(path))
         f.write('optimize\n')
@@ -355,8 +350,8 @@ if __name__ == '__main__':
         print i, path
     print '-' * 80
    
-    for path in reversed(path_list):
-    #for path in path_list:
+    #for path in reversed(path_list):
+    for path in path_list[5:]:
         with open(path, 'r') as f:
             inputData = ''.join(f.readlines())
         print 'Solving:', path
