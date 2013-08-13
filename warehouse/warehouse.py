@@ -44,7 +44,7 @@ def make_mps_path(path):
     return os.path.join(MPS_DIR, make_name(path) + '.mps')
 
 def make_solution_path(path):
-    return os.path.join(SOLUTION_DIR, make_name(path) + '.1hour.soln')    
+    return os.path.join(SOLUTION_DIR, make_name(path) + '.4hour.soln')    
    
     
 def make_bat_path(path):
@@ -351,7 +351,7 @@ if __name__ == '__main__':
     print '-' * 80
    
     #for path in reversed(path_list):
-    for path in path_list[5:]:
+    for path in path_list[6:]:
         with open(path, 'r') as f:
             inputData = ''.join(f.readlines())
         print 'Solving:', path
