@@ -27,8 +27,8 @@ Row = namedtuple('Row', ['name', 'typ', 'vals', 'rhs'])
 MPS_DIR = 'mps'
 SOLUTION_DIR = 'solution'
 BAT_DIR = 'batch'
-#SCIP_PATH = r'D:\peter.dev\disc.op\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe' 
-SCIP_PATH = r'D:\dev\coursera\discrete.optimization\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe'
+SCIP_PATH = r'D:\peter.dev\disc.op\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe' 
+#SCIP_PATH = r'D:\dev\coursera\discrete.optimization\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe'
 
 
 
@@ -56,7 +56,7 @@ def make_bat_path(path):
     return os.path.join(BAT_DIR, make_name(path) + '.scip')    
     
 def run_scip(bat_path):    
-    argv = [SCIP_PATH, '-b', bat_path]
+    argv = [SCIP_PATH, '-b', bat_path, '-s', 'scip1.set' ]
     p = subprocess.Popen(argv)
     p.wait()
     
@@ -121,101 +121,101 @@ def make_mps(path, warehouses, customerCount, customerSizes, customerCosts):
         for v in vals:
             rows_with_var[v].add(num) 
       
-    print '@1 objective'   
-    #obj = sum([warehouses[w].cost * x[w]) fixed cost  
-    #  + sum(customerCosts[w,c] *y[w,c]) transportation cost
-    make_row('OB', 'N', 
-            lambda i: warehouses[i].cost, range(W),
-            lambda i, j: customerCosts[j][i], range(W), range(C),
-            0.0)
-    
-    print '@1a', W * C
-    # y[w,c] <= x[w]
-    for w in range(W):
-        for c in range(C):
-            make_row('A_', 'G', 
-                lambda i: 1, [w],
-                lambda i, j: -1, [w], [c],  
+    if not os.path.exists(make_mps_path(path)):  
+        print '@1 objective'   
+        #obj = sum([warehouses[w].cost * x[w]) fixed cost  
+        #  + sum(customerCosts[w,c] *y[w,c]) transportation cost
+        make_row('OB', 'N', 
+                lambda i: warehouses[i].cost, range(W),
+                lambda i, j: customerCosts[j][i], range(W), range(C),
                 0.0)
-    
-    print '@2', C
-    #sum(y[w,c]) over w == 1     
-    for c in range(C):
-        make_row('B_', 'E', 
-            lambda i: 0, [],
-            lambda i, j: 1, range(W), [c], 
-            1.0)   
-    
-    print '@3', W
-    # sum(y[w,c]) over c <= capacity[w]
-    for w in range(W):
-        #print 'warehouses[%d]=%s' % (w, warehouses[w])
-        make_row('C_', 'L', 
-            lambda i: 0, [],
-            lambda i, j:  customerSizes[j], [w], range(C), 
-            warehouses[w].capacity)    
         
-    print '@100', make_mps_path(path), len(rows)
-    
-    for r in rows:
-        assert isinstance(r, Row), r
-    
-    for v in rows_with_var.keys():
-        rows_with_var[v] = sorted(rows_with_var[v])
-        assert isinstance(rows_with_var[v], list), rows_with_var[v]
-   
-    
-    with open(make_mps_path(path), 'wt') as f:
-        f.write('*NAME:         %s\n' % make_name(path))
-        f.write('*ORIG NAME:    %s\n' % path)
-        f.write('*W:            %d\n' % W)
-        f.write('*C:            %d\n' % C)
-        f.write('*COLUMNS:      %d\n' % len(rows))
-        #for r in rows:
-        #    f.write('* %s\n' % repr(r))
-        #f.write('*INTEGER:      27
-        f.write('%-15s%s\n' % ('NAME', make_name(path)))
-        f.write('ROWS\n')
-        #f.write('%2s %s\n' % ('N', 'OBJ'))
+        print '@1a', W * C
+        # y[w,c] <= x[w]
+        for w in range(W):
+            for c in range(C):
+                make_row('A_', 'G', 
+                    lambda i: 1, [w],
+                    lambda i, j: -1, [w], [c],  
+                    0.0)
+        
+        print '@2', C
+        #sum(y[w,c]) over w == 1     
+        for c in range(C):
+            make_row('B_', 'E', 
+                lambda i: 0, [],
+                lambda i, j: 1, range(W), [c], 
+                1.0)   
+        
+        print '@3', W
+        # sum(y[w,c]) over c <= capacity[w]
+        for w in range(W):
+            #print 'warehouses[%d]=%s' % (w, warehouses[w])
+            make_row('C_', 'L', 
+                lambda i: 0, [],
+                lambda i, j:  customerSizes[j], [w], range(C), 
+                warehouses[w].capacity)    
+            
+        print '@100', make_mps_path(path), len(rows)
+        
         for r in rows:
-            f.write('%2s %s\n' % (r.typ, r.name))
-        f.write('COLUMNS\n')  
-        f.write("  MARK0000  'MARKER'                 'INTORG'\n")
-        total = 0
-        for iv, v in enumerate(variables):
-            if iv % 100000 == 10000:
-                estimate = int(total * len(variables)/iv) if iv > 0 else 0
-                print '%6d of %d %f (%6d) : %6d' % (iv, len(variables), iv/len(variables), total, estimate)
-                f.flush()
-            cnt = 0
-    
-            for ir in rows_with_var[v]: 
-                r = rows[ir]
-            #for ir, r in enumerate(rows):
-            #    if v not in r.vals.keys(): 
-            #        continue
-                if cnt % 2 == 0:
-                    f.write(' %-7s ' % v)
-                f.write('%-7s %8.3f ' % (r.name, r.vals.get(v, 0)))
-                if cnt % 2 == 1:
-                    f.write('\n')
-                cnt += 1 
-                total += 1    
-            f.write('\n')             
-        f.write("   MARK0001  'MARKER'                 'INTEND'\n")
-        f.write('RHS\n')             
-        for ir, r in enumerate(rows):
-            f.write(' %-7s %8.3f' % (r.name, r.rhs))
-            if ir % 2 == 1:
-                 f.write('\n') 
-        f.write('\n')      
-        f.write('BOUNDS\n')          
-        for iv, v in enumerate(variables):
-           # f.write('  LO BOUND %-7s 0\n' % (v))
-            f.write('  UP BOUND %-7s 1\n' % (v))
-        f.write('ENDATA\n')     
+            assert isinstance(r, Row), r
         
-    
+        for v in rows_with_var.keys():
+            rows_with_var[v] = sorted(rows_with_var[v])
+            assert isinstance(rows_with_var[v], list), rows_with_var[v]
+       
+        with open(make_mps_path(path), 'wt') as f:
+            f.write('*NAME:         %s\n' % make_name(path))
+            f.write('*ORIG NAME:    %s\n' % path)
+            f.write('*W:            %d\n' % W)
+            f.write('*C:            %d\n' % C)
+            f.write('*COLUMNS:      %d\n' % len(rows))
+            #for r in rows:
+            #    f.write('* %s\n' % repr(r))
+            #f.write('*INTEGER:      27
+            f.write('%-15s%s\n' % ('NAME', make_name(path)))
+            f.write('ROWS\n')
+            #f.write('%2s %s\n' % ('N', 'OBJ'))
+            for r in rows:
+                f.write('%2s %s\n' % (r.typ, r.name))
+            f.write('COLUMNS\n')  
+            f.write("  MARK0000  'MARKER'                 'INTORG'\n")
+            total = 0
+            for iv, v in enumerate(variables):
+                if iv % 100000 == 10000:
+                    estimate = int(total * len(variables)/iv) if iv > 0 else 0
+                    print '%6d of %d %f (%6d) : %6d' % (iv, len(variables), iv/len(variables), total, estimate)
+                    f.flush()
+                cnt = 0
+        
+                for ir in rows_with_var[v]: 
+                    r = rows[ir]
+                #for ir, r in enumerate(rows):
+                #    if v not in r.vals.keys(): 
+                #        continue
+                    if cnt % 2 == 0:
+                        f.write(' %-7s ' % v)
+                    f.write('%-7s %8.3f ' % (r.name, r.vals.get(v, 0)))
+                    if cnt % 2 == 1:
+                        f.write('\n')
+                    cnt += 1 
+                    total += 1    
+                f.write('\n')             
+            f.write("   MARK0001  'MARKER'                 'INTEND'\n")
+            f.write('RHS\n')             
+            for ir, r in enumerate(rows):
+                f.write(' %-7s %8.3f' % (r.name, r.rhs))
+                if ir % 2 == 1:
+                     f.write('\n') 
+            f.write('\n')      
+            f.write('BOUNDS\n')          
+            for iv, v in enumerate(variables):
+               # f.write('  LO BOUND %-7s 0\n' % (v))
+                f.write('  UP BOUND %-7s 1\n' % (v))
+            f.write('ENDATA\n')     
+            
+        
     with open(make_bat_path(path), 'wt') as f:
         f.write('read %s\n' % make_mps_path(path))
         f.write('optimize\n')
@@ -225,6 +225,7 @@ def make_mps(path, warehouses, customerCount, customerSizes, customerCosts):
     run_scip(make_bat_path(path))
     objective, optimal, solution_dict = parse_solution(make_solution_path(path))   
     assert len(solution_dict) == C
+    
     solution = [-1] * C
     for c, w in solution_dict.items():        
         solution[c] = w    
@@ -241,7 +242,8 @@ def make_mps(path, warehouses, customerCount, customerSizes, customerCosts):
 def solve(path, warehouses, customerCount, customerSizes, customerCosts):
     
     make_mps(path, warehouses, customerCount, customerSizes, customerCosts)
-    
+   
+# The problems that are assessed in the course (from submit.pyc)   
 some_dict = {    
  '8zVuNh0L-dev': './data/wl_16_1',
  'eaOs8z3l-dev': './data/wl_25_2',
@@ -257,6 +259,9 @@ submit_paths = some_dict.values()
 RE_DATA = re.compile(r'wl_(\d+)_\d+') 
 
 def get_W(path):
+    """Return number of warehouses (W) for data file in path
+        e.g. path='data/wl_100_4' => W=100
+    """    
     m = RE_DATA.search(path)
     assert m, path
     return int(m.group(1))
@@ -350,7 +355,8 @@ if __name__ == '__main__':
         print i, path
     print '-' * 80
    
-    for path in path_list[6:]:
+    for path in reversed(path_list):
+    #for path in path_list:
         with open(path, 'r') as f:
             inputData = ''.join(f.readlines())
         print 'Solving:', path

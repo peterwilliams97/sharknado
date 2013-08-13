@@ -1,0 +1,5 @@
+
+# maximal memory usage in MB; reported memory usage is lower than real memory usage!
+# [type: real, range: [0,1.79769313486232e+308], default: 1e+20]
+limits/memory = 2e+9
+
