@@ -351,7 +351,7 @@ if __name__ == '__main__':
     print '-' * 80
    
     #for path in reversed(path_list):
-    for path in path_list[6:]:
+    for path in path_list[5:]:
         with open(path, 'r') as f:
             inputData = ''.join(f.readlines())
         print 'Solving:', path
