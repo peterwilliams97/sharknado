@@ -27,8 +27,8 @@ Row = namedtuple('Row', ['name', 'typ', 'vals', 'rhs'])
 MPS_DIR = 'mps'
 SOLUTION_DIR = 'solution'
 BAT_DIR = 'batch'
-#SCIP_PATH = r'D:\peter.dev\disc.op\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe' 
-SCIP_PATH = r'D:\dev\coursera\discrete.optimization\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe'
+SCIP_PATH = r'D:\peter.dev\disc.op\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe' 
+#SCIP_PATH = r'D:\dev\coursera\discrete.optimization\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe'
 
 
 for dir in MPS_DIR, SOLUTION_DIR, BAT_DIR:
