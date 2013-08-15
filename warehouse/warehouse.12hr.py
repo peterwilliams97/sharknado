@@ -27,8 +27,8 @@ Row = namedtuple('Row', ['name', 'typ', 'vals', 'rhs'])
 MPS_DIR = 'mps'
 SOLUTION_DIR = 'solution'
 BAT_DIR = 'batch'
-SCIP_PATH = r'D:\peter.dev\disc.op\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe' 
-#SCIP_PATH = r'D:\dev\coursera\discrete.optimization\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe'
+#SCIP_PATH = r'D:\peter.dev\disc.op\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe' 
+SCIP_PATH = r'D:\dev\coursera\discrete.optimization\scip-3.0.1.mingw.x86_64.intel.opt.spx.exe\scip.exe'
 
 
 for dir in MPS_DIR, SOLUTION_DIR, BAT_DIR:
@@ -351,7 +351,7 @@ if __name__ == '__main__':
     print '-' * 80
    
     #for path in reversed(path_list):
-    for path in path_list[5:]:
+    for path in path_list[7:]:
         with open(path, 'r') as f:
             inputData = ''.join(f.readlines())
         print 'Solving:', path

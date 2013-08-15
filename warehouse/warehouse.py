@@ -44,13 +44,13 @@ def make_mps_path(path):
     return os.path.join(MPS_DIR, make_name(path) + '.mps')
 
 def make_solution_path(path):
-    return os.path.join(SOLUTION_DIR, make_name(path) + '.4hour.soln')    
+    return os.path.join(SOLUTION_DIR, make_name(path) + '.soln')    
        
 def make_bat_path(path):
     return os.path.join(BAT_DIR, make_name(path) + '.scip')    
     
 def run_scip(bat_path):    
-    argv = [SCIP_PATH, '-b', bat_path, '-s', 'scip1.set' ]
+    argv = [SCIP_PATH, '-b', bat_path] # , '-s', 'scip1.set' ]
     p = subprocess.Popen(argv)
     p.wait()
     
