@@ -8,7 +8,10 @@ def length(customer1, customer2):
 
     
 def solve(customerCount, vehicleCount, vehicleCapacity, depotIndex, customers):   
-
+    
+    # build a trivial solution
+    # assign customers to vehicles starting by the largest customer demands
+    
     vehicleTours = []
     customerIndexs = set(range(1, customerCount))  # start at 1 to remove depot index
 
@@ -48,8 +51,7 @@ def solveIt(inputData):
         parts = line.split()
         customers.append((int(parts[0]), float(parts[1]), float(parts[2])))
 
-    # build a trivial solution
-    # assign customers to vehicles starting by the largest customer demands
+   
 
     vehicleTours = solve(customerCount, vehicleCount, vehicleCapacity, depotIndex, customers)
         
