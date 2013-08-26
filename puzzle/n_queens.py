@@ -5,25 +5,25 @@ Sovlve the n queens problem http://en.wikipedia.org/wiki/Eight_queens_puzzle
 
 """
 from __future__ import division
-from collections import namedtuple
-import os, glob, subprocess, re
-import logging
 import numpy as np
 import sys, random
 from numba import autojit
 
-N = 8
+N = 0
 
 def make_board():
     return np.zeros((N, N), dtype=np.int)
 
 @autojit
 def propagate(board, x, y, d):
-    
+    """ Propagate the constra
+    """
+    # Add d to the elements in the column and row that intersect (x, y) including (x, y)
     board[x, :] += d
     board[:, y] += d
     board[x, y] -= d
 
+    # Add d to the elements in the diagonals that intersect (x, y) excluding (x, y)
     x1 = x - 1
     y1 = y - 1
     x2 = x + 1
@@ -88,38 +88,26 @@ def add_queen(queens, board):
         found = add_queen(queens2, board)
         propagate(board, x, y, -1)
         if found:
-            #print '@@@', queens2, x, y
-            #print board2.T[::-1,:] 
-            #assert board[x, y] == 8
             return True
             
     return False
-
     
     
 def solve(n):
     global N, order, final_queens
-    
-    soln = '%d.soln' % n
-    if os.path.exists(soln):
-        print 'reading existing'
-        with open(soln, 'rt') as f:
-            line = f.readline().strip('\n')
-            final_queens = eval(line)
-    else:        
-        N = n
-        order = list(range(N))
-        random.shuffle(order) 
-        queens = []    
-        board = make_board()
-        final_queens = None
-        found = add_queen(queens, board)
-        print found
-        print final_queens
-        with open(soln, 'wt') as f:
-            f.write('%s\n' % repr(final_queens))
+
+    N = n
+    order = list(range(N))
+    random.shuffle(order) 
+    queens = []    
+    board = make_board()
+    final_queens = None
+    found = add_queen(queens, board)
+    print found
+    print final_queens
     return final_queens
 
+    
 if __name__ == '__main__':    
     N = int(sys.argv[1])
     sol = solve(N)
