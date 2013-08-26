@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 """
-
+Sovlve the n queens problem http://en.wikipedia.org/wiki/Eight_queens_puzzle
 
 """
 from __future__ import division
@@ -9,78 +9,65 @@ from collections import namedtuple
 import os, glob, subprocess, re
 import logging
 import numpy as np
-import sys
+import sys, random
+from numba import autojit
 
 N = 8
 
 def make_board():
     return np.zeros((N, N), dtype=np.int)
 
-
-def propagate(queens, board):
-    #print '----'
-    #print list(enumerate(queens))
-    board = board.copy()
-    for x, y in enumerate(queens):
-        board[x, :] = 1
-        board[:, y] = 1
-        
-        xx, yy = x, y
-        while xx >= 0 and yy >= 0:
-            board[xx, yy] = 1
-            xx -= 1
-            yy -= 1    
-        
-        xx, yy = x, y
-        while xx < N and yy >= 0:
-            board[xx, yy] = 1
-            xx += 1
-            yy -= 1
-            
-        xx, yy = x, y    
-        while xx >= 0 and yy < N:
-            board[xx, yy] = 1
-            xx -= 1
-            yy += 1 
-            
-        xx, yy = x, y
-        while xx < N and yy < N:
-            board[xx, yy] = 1
-            xx += 1
-            yy += 1     
-        
-        if False:
-            min_xy = min(x, y)
-            max_xy = max(x, y)
-            min_xy2 = min(x, N-y)
-            max_xy2 = max(x, N-y)
-            for i in range(-min_xy, N-max_xy):
-                board[x + i, y + i] = 1
-            for i in range(-min_xy2, max_xy2):
-                try:
-                    board[x + i, y - i] = 1 
-                except:
-                    pass
-                    #print >> sys.stderr, min_xy2, max_xy2, i,  (x,x + i), (y,y - i)
+@autojit
+def propagate(board, x, y, d):
     
-    for x, y in enumerate(queens):
-        board[x, y] = 8 
-        
-    
-    #board[3,0] = 3
-    #board[0,4] = 4
-    #print board.T[::-1,:]         
-    #print 
-    return board            
+    board[x, :] += d
+    board[:, y] += d
+    board[x, y] -= d
 
+    x1 = x - 1
+    y1 = y - 1
+    x2 = x + 1
+    y2 = y - 1
+    x3 = x - 1
+    y3 = y + 1
+    x4 = x + 1
+    y4 = y + 1       
+
+    while x1 >= 0 and y1 >= 0:
+        board[x1, y1] += d
+        x1 -= 1
+        y1 -= 1    
+
+    while x2 < N and y2 >= 0:
+        board[x2, y2] += d
+        x2 += 1
+        y2 -= 1
+      
+    while x3 >= 0 and y3 < N:
+        board[x3, y3] += d
+        x3 -= 1
+        y3 += 1 
+   
+    while x4 < N and y4 < N:
+        board[x4, y4] += d
+        x4 += 1
+        y4 += 1     
+          
+
+order = list(range(N))
+#random.shuffle(order) 
+   
 final_queens = None
 depth = 0
+counts = {}
+
 def add_queen(queens, board):
     global final_queens, depth
     
-    if len(queens) > depth:
+    if len(queens) >= depth:
+        print len(queens), depth, N
         depth = len(queens)
-        print depth, N
+        
         
     if len(queens) == N:
         print board.T[::-1,:] 
@@ -91,33 +78,46 @@ def add_queen(queens, board):
         
     queens = queens[:]
     x = len(queens)
-    for y in range(N):
+    order2 = order[:]
+    random.shuffle(order2) 
+    for y in order2:
         if board[x, y] != 0:
-            #print '*', x, y
             continue
-        #print '==============='
-        #print x,y
         queens2 = queens + [y]
-        board2 = propagate(queens2, board)
-        if add_queen(queens2, board2):
+        propagate(board, x, y, 1)
+        found = add_queen(queens2, board)
+        propagate(board, x, y, -1)
+        if found:
             #print '@@@', queens2, x, y
             #print board2.T[::-1,:] 
-            assert board2[x, y] == 8
+            #assert board[x, y] == 8
             return True
             
     return False
 
     
-def solve(n):
-    global N, final_queens
     
-    N = n
-    queens = []    
-    board = make_board()
-    final_queens = None
-    found = add_queen(queens, board)
-    print found
-    print final_queens
+def solve(n):
+    global N, order, final_queens
+    
+    soln = '%d.soln' % n
+    if os.path.exists(soln):
+        print 'reading existing'
+        with open(soln, 'rt') as f:
+            line = f.readline().strip('\n')
+            final_queens = eval(line)
+    else:        
+        N = n
+        order = list(range(N))
+        random.shuffle(order) 
+        queens = []    
+        board = make_board()
+        final_queens = None
+        found = add_queen(queens, board)
+        print found
+        print final_queens
+        with open(soln, 'wt') as f:
+            f.write('%s\n' % repr(final_queens))
     return final_queens
 
 if __name__ == '__main__':    
