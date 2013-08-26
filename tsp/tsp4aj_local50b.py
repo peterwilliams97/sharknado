@@ -14,7 +14,6 @@ import sys, time, os
 
 from numba import autojit, jit, double
 
-import best_history
 
 # 80 forwards, 81 backwards
 VERSION = 100
